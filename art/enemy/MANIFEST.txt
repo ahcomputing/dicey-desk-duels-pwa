@@ -1,0 +1,52 @@
+# Underfoot art manifest — enemies (CONTENT.ENEMIES, bosses included)
+# Format: transparent PNG, square. Recommended 256x256 (enemies & skins) / 256x256
+#   for die skins (rendered as the die body behind the pips). Filenames are exact
+#   and case-sensitive. Drop a correctly-named file in this folder and it appears
+#   in-game with no code change; a missing file silently falls back to the emoji.
+# Each line: <filename>  — <description>. <code mapping>.
+paperclip.png          — Paperclip (role Grunt). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📎.
+pen.png                — Pen (role Grunt). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🖊.
+thumbtack.png          — Thumbtack (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📌.
+staples.png            — Staples (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧵.
+book.png               — Book (role Brute). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📚.
+stapler.png            — Stapler (role Brute). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🗜.
+glue.png               — Glue (role Mender). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧴.
+whiteout.png           — White-Out (role Mender). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🖌.
+binder.png             — Binder Clip (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧷.
+tape.png               — Tape Roll (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🩹.
+rubberband.png         — Rubber Band (role Berserker). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback ➰.
+dispenser.png          — Tape Dispenser (role Warden). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📭.
+pencilcup.png          — Pencil Cup (role Summoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥤.
+desklamp.png           — Desk Lamp (role Standard-Bearer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 💡.
+eraser.png             — Eraser (role Hexer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧽.
+gum.png                — Gum Wad (role Jammer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍬.
+clamp.png              — Spring Clamp (role Jailer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🗜.
+screw.png              — Rusty Screw (role Rust). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔩.
+sticker.png            — Sticker (role Sealer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🏷.
+coffee.png             — Coffee Spill (role Fogger). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback ☕.
+key.png                — Lost Key (role Grunt). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔑.
+magnet.png             — Horseshoe Magnet (role Brute). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧲.
+pushpin.png            — Push-Pins (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📍.
+battery.png            — Loose Battery (role Berserker). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔋.
+paperweight.png        — Paperweight (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🪨.
+usb.png                — USB Stick (role Jailer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔌.
+cassette.png           — Cassette (role Summoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📼.
+magnifier.png          — Magnifier (role Hexer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔍.
+ruler.png              — Steel Ruler (role Standard-Bearer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📏.
+correctionpen.png      — Correction Pen (role Mender). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🖊.
+crayon.png             — Crayon (role Grunt). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🖍.
+button.png             — Loose Button (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔘.
+marble.png             — Marble (role Grunt). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔵.
+highlighter.png        — Highlighter (role Hexer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🟨.
+rubberstamp.png        — Rubber Stamp (role Brute). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📪.
+calculator.png         — Calculator (role Brute). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧮.
+stickynote.png         — Sticky Note (role Mender). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🗒.
+dvd.png                — Scratched DVD (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 💿.
+headphones.png         — Headphones (role Warden). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🎧.
+bookmark.png           — Bookmark (role Grunt). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔖.
+roguedie.png           — Rogue Die (role Berserker). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🎲.
+holepunch.png          — Hole-Punch (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🕳.
+heavystapler.png       — Industrial Stapler (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback ⚙️.
+scissors.png           — Scissors (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback ✂️.
+sharpener.png          — Pencil Sharpener (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback ✏️.
+swissknife.png         — Swiss Army Knife (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔪.

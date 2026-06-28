@@ -1,0 +1,34 @@
+# Underfoot art manifest — die feature skins (CONTENT.FEATURES, by die.feature key)
+# Format: transparent PNG, square. Recommended 256x256 (enemies & skins) / 256x256
+#   for die skins (rendered as the die body behind the pips). Filenames are exact
+#   and case-sensitive. Drop a correctly-named file in this folder and it appears
+#   in-game with no code change; a missing file silently falls back to the emoji.
+# Each line: <filename>  — <description>. <code mapping>.
+cleave.png             — Cleave die feature. Die-body skin when a die carries Cleave; rendered behind the pips in the dice row. Fallback: plain die + 🌊 badge.
+bulwark.png            — Bulwark die feature. Die-body skin when a die carries Bulwark; rendered behind the pips in the dice row. Fallback: plain die + 🛡 badge.
+bulwarkRoll.png        — Tide Wall die feature. Die-body skin when a die carries Tide Wall; rendered behind the pips in the dice row. Fallback: plain die + 🌀 badge.
+bulwarkCombo.png       — Aegis die feature. Die-body skin when a die carries Aegis; rendered behind the pips in the dice row. Fallback: plain die + 🔰 badge.
+freereroll.png         — Free Reroll die feature. Die-body skin when a die carries Free Reroll; rendered behind the pips in the dice row. Fallback: plain die + 🔄 badge.
+echo.png               — Echo die feature. Die-body skin when a die carries Echo; rendered behind the pips in the dice row. Fallback: plain die + 🔮 badge.
+overcharge.png         — Overcharge die feature. Die-body skin when a die carries Overcharge; rendered behind the pips in the dice row. Fallback: plain die + ⚡ badge.
+banker.png             — Banker die feature. Die-body skin when a die carries Banker; rendered behind the pips in the dice row. Fallback: plain die + 🏦 badge.
+whetstone.png          — Whetstone die feature. Die-body skin when a die carries Whetstone; rendered behind the pips in the dice row. Fallback: plain die + 🪓 badge.
+siphon.png             — Siphon die feature. Die-body skin when a die carries Siphon; rendered behind the pips in the dice row. Fallback: plain die + 🩸 badge.
+siphonRoll.png         — Bloodletter die feature. Die-body skin when a die carries Bloodletter; rendered behind the pips in the dice row. Fallback: plain die + 💉 badge.
+siphonCombo.png        — Vital Surge die feature. Die-body skin when a die carries Vital Surge; rendered behind the pips in the dice row. Fallback: plain die + ❤️‍🔥 badge.
+siphonDamage.png       — Leech die feature. Die-body skin when a die carries Leech; rendered behind the pips in the dice row. Fallback: plain die + 🧛 badge.
+thorns.png             — Thorns die feature. Die-body skin when a die carries Thorns; rendered behind the pips in the dice row. Fallback: plain die + 🌵 badge.
+thornsCombo.png        — Bramble die feature. Die-body skin when a die carries Bramble; rendered behind the pips in the dice row. Fallback: plain die + 🌹 badge.
+ascend.png             — Ascend die feature. Die-body skin when a die carries Ascend; rendered behind the pips in the dice row. Fallback: plain die + ⬆️ badge.
+magnet.png             — Magnet die feature. Die-body skin when a die carries Magnet; rendered behind the pips in the dice row. Fallback: plain die + 🧲 badge.
+momentum.png           — Momentum die feature. Die-body skin when a die carries Momentum; rendered behind the pips in the dice row. Fallback: plain die + 🏃 badge.
+overflow.png           — Overflow die feature. Die-body skin when a die carries Overflow; rendered behind the pips in the dice row. Fallback: plain die + 💧 badge.
+piercer.png            — Piercer die feature. Die-body skin when a die carries Piercer; rendered behind the pips in the dice row. Fallback: plain die + 🗡️ badge.
+kindle.png             — Kindle die feature. Die-body skin when a die carries Kindle; rendered behind the pips in the dice row. Fallback: plain die + 🔥 badge.
+shockwave.png          — Shockwave die feature. Die-body skin when a die carries Shockwave; rendered behind the pips in the dice row. Fallback: plain die + 💥 badge.
+bubble.png             — Bubble die feature. Die-body skin when a die carries Bubble; rendered behind the pips in the dice row. Fallback: plain die + 🫧 badge.
+prism.png              — Prism die feature. Die-body skin when a die carries Prism; rendered behind the pips in the dice row. Fallback: plain die + 🔆 badge.
+counter.png            — Counter die feature. Die-body skin when a die carries Counter; rendered behind the pips in the dice row. Fallback: plain die + ↩️ badge.
+jackpot.png            — Jackpot die feature. Die-body skin when a die carries Jackpot; rendered behind the pips in the dice row. Fallback: plain die + 🎰 badge.
+overkill.png           — Overkill die feature. Die-body skin when a die carries Overkill; rendered behind the pips in the dice row. Fallback: plain die + 🪦 badge.
+ricochet.png           — Ricochet die feature. Die-body skin when a die carries Ricochet; rendered behind the pips in the dice row. Fallback: plain die + 🎯 badge.

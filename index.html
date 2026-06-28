@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#123a35">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+<title>Dicey Desk Duels</title>
+</head>
+<body>
+<div id="game">
+  <div class="topbar">
+    <div class="title">DICEY DESK DUELS</div>
+    <div class="grow"></div>
+    <div class="chip">🫘 <b id="curlabel">0</b></div>
+    <div class="chip" id="chalchip" style="display:none">🔥× <b id="challabel">1</b></div>
+    <div class="chip">⚔️ <b id="fightlabel">1 / 8</b></div>
+    <div class="chip">R<b id="roundlabel">1</b></div>
+  </div>
+  <div class="enemies" id="enemies"></div>
+  <div class="player" id="playerzone">
+    <button class="info" id="infobtn">?</button>
+    <div class="hero" id="hero">🧝</div>
+    <div class="phpwrap">
+      <span class="armorpip" id="armorpip" style="display:none">🛡️<span id="armorval">0</span></span>
+      <span class="shieldpip" id="shieldpip" style="display:none">🔷<span id="shieldval">0</span></span>
+      <div class="php"><i id="phpfill"></i><span id="phptext">30 / 30</span></div>
+    </div>
+    <div class="preview" id="preview">
+      <div class="combo none" id="combolabel">roll your dice</div>
+      <div class="dmgnum"><span id="dmgval">0</span><em id="dmgmeta"></em></div>
+    </div>
+  </div>
+  <div class="dicerow" id="dicerow"></div>
+  <div class="rerollbar">🔄 <b id="rerolls">3</b> / <span id="maxrerolls">3</span> rerolls</div>
+  <div class="hint">Tap a die to reroll · tap an enemy for stats &amp; targeting · tap yourself for buffs</div>
+  <div class="actions"><button class="attack" id="attackbtn">Attack</button></div>
+  <div class="overlay" id="overlay" style="display:none"></div>
+</div>
+<script src="content.js"></script>
+<script src="engine.js"></script>
+<script src="view.js"></script>
+<script>
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>

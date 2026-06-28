@@ -1,0 +1,47 @@
+# Underfoot art manifest — player skins (view.js SKINS, by skin id)
+# Format: transparent PNG, square. Recommended 256x256 (enemies & skins) / 256x256
+#   for die skins (rendered as the die body behind the pips). Filenames are exact
+#   and case-sensitive. Drop a correctly-named file in this folder and it appears
+#   in-game with no code change; a missing file silently falls back to the emoji.
+# Each line: <filename>  — <description>. <code mapping>.
+
+# --- Defaults (free, unlocked) ---
+elf.png                — Elf skin (free (default)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧝.
+mage.png               — Mage skin (free (default)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧙.
+rogue.png              — Rogue skin (free (default)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🦹.
+
+# --- Challenge unlocks (levels 1-10) ---
+ninja.png              — Ninja skin (Challenge ×1 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🥷.
+vampire.png            — Vampire skin (Challenge ×2 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧛.
+royal.png              — Royal skin (Challenge ×3 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🤴.
+knight.png             — Knight skin (Challenge ×4 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback ⚔️.
+pirate.png             — Pirate skin (Challenge ×5 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🏴‍☠️.
+plaguedoctor.png       — Plague Doctor skin (Challenge ×6 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🩺.
+astronaut.png          — Astronaut skin (Challenge ×7 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧑‍🚀.
+barbarian.png          — Barbarian skin (Challenge ×8 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 💪.
+druid.png              — Druid skin (Challenge ×9 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🌿.
+mecha.png              — Mecha Pilot skin (Challenge ×10 win). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🦾.
+
+# --- Shop purchases (in-game beans 🫘) ---
+chef.png               — Chef skin (Shop purchase (1,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧑‍🍳.
+techie.png             — Tech Enthusiast skin (Shop purchase (2,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧑‍💻.
+bard.png               — Bard skin (Shop purchase (3,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🪕.
+cat.png                — Cat skin (Shop purchase (4,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🐱.
+dog.png                — Dog skin (Shop purchase (5,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🐶.
+explorer.png           — Explorer skin (Shop purchase (6,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧭.
+drone.png              — Drone skin (Shop purchase (7,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🚁.
+dolphin.png            — Dolphin skin (Shop purchase (8,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🐬.
+jester.png             — Jester skin (Shop purchase (9,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🃏.
+dapper.png             — Dapper skin (Shop purchase (10,000 🫘)). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🎩.
+
+# --- Bonus bench (unlock method TBD) ---
+samurai.png            — Samurai skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🗡️.
+cowboy.png             — Cowboy skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🤠.
+robot.png              — Robot skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🤖.
+viking.png             — Viking skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🪓.
+fox.png                — Fox skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🦊.
+penguin.png            — Penguin skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🐧.
+detective.png          — Detective skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🕵️.
+madscientist.png       — Mad Scientist skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧪.
+gladiator.png          — Gladiator skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🛡️.
+monk.png               — Monk skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧘.

@@ -1,0 +1,13 @@
+# owner-specific ops doc — exposes internal LAN topology, keep local only
+deploy.html
+
+# stale editor backup of view.js
+view.js.txt
+
+# local agent / editor settings
+.claude/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*~
