@@ -22,6 +22,7 @@
     <div class="chip" id="chalchip" style="display:none">🔥× <b id="challabel">1</b></div>
     <div class="chip">⚔️ <b id="fightlabel">1 / 8</b></div>
     <div class="chip">R<b id="roundlabel">1</b></div>
+    <button class="chip" id="mutebtn" title="Mute / unmute sound" aria-label="Mute or unmute sound">🔊</button>
   </div>
   <div class="enemies" id="enemies"></div>
   <div class="player" id="playerzone">
@@ -45,10 +46,12 @@
 </div>
 <script src="content.js"></script>
 <script src="engine.js"></script>
+<script src="audio.js"></script>
+<script src="music.js"></script>
 <script src="view.js"></script>
 <script>
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-  navigator.serviceWorker.register('sw.js').catch(function(){});
+  navigator.serviceWorker.register('sw.js').then(function (r) { if (r) r.update(); }).catch(function(){});
 }
 </script>
 </body>

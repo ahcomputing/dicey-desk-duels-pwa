@@ -1,0 +1,60 @@
+<svg viewBox="0 0 1200 440" xmlns="http://www.w3.org/2000/svg" font-family="'DM Sans','Segoe UI',system-ui,-apple-system,sans-serif">
+  <defs>
+    <!-- self-healing cutting-mat grid -->
+    <pattern id="matGrid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0H0V34" fill="none" stroke="#b4e1d2" stroke-opacity="0.10" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="vignette" cx="50%" cy="42%" r="80%">
+      <stop offset="0.45" stop-color="#123a35" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0a2420" stop-opacity="0.92"/>
+    </radialGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0c56a"/>
+      <stop offset="1" stop-color="#b6852f"/>
+    </linearGradient>
+    <filter id="spriteShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="titleShadow" x="-10%" y="-25%" width="120%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="0" flood-color="#06201d" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <!-- base -->
+  <rect width="1200" height="440" fill="#123a35"/>
+  <rect width="1200" height="440" fill="url(#matGrid)"/>
+  <rect width="1200" height="440" fill="url(#vignette)"/>
+
+  <!-- brass frame + blueprint corner ticks -->
+  <rect x="18" y="18" width="1164" height="404" rx="20" fill="none" stroke="url(#brass)" stroke-opacity="0.55" stroke-width="2"/>
+  <g stroke="url(#brass)" stroke-width="3" fill="none" opacity="0.85">
+    <path d="M18 40 V18 H40"/>
+    <path d="M1160 18 H1182 V40"/>
+    <path d="M18 400 V422 H40"/>
+    <path d="M1160 422 H1182 V400"/>
+  </g>
+
+  <!-- brand mark -->
+  <text x="600" y="88" text-anchor="middle" font-family="'IBM Plex Mono',ui-monospace,'Courier New',monospace" font-size="17" font-weight="700" letter-spacing="7" fill="#9fb3ac" opacity="0.85">DICEY DESK DUELS</text>
+
+  <!-- coming soon label -->
+  <text x="600" y="152" text-anchor="middle" font-family="'IBM Plex Mono',ui-monospace,'Courier New',monospace" font-size="26" font-weight="700" letter-spacing="15" fill="#e6b24c">COMING SOON</text>
+
+  <!-- headline -->
+  <text x="600" y="272" text-anchor="middle" font-size="96" font-weight="800" letter-spacing="3" fill="#f2e9da" filter="url(#titleShadow)">THE KITCHEN</text>
+
+  <!-- brass underline flourish -->
+  <rect x="540" y="294" width="120" height="4" rx="2" fill="url(#brass)"/>
+
+  <!-- subtitle -->
+  <text x="600" y="342" text-anchor="middle" font-size="24" font-weight="600" letter-spacing="1" fill="#9fb3ac">New enemies. New hazards. Mind the mousetrap.</text>
+
+  <!-- enemy sprite teaser row -->
+  <g filter="url(#spriteShadow)" font-size="52" text-anchor="middle">
+    <text x="470" y="406">🐜</text>
+    <text x="535" y="406">🧽</text>
+    <text x="600" y="406">🧊</text>
+    <text x="665" y="406">🍴</text>
+    <text x="730" y="406">🪤</text>
+  </g>
+</svg>

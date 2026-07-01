@@ -130,7 +130,7 @@ var CONTENT = {
   },
 
   // battle-start one-liners — one enemy "speaks" per fight (Engine.startFight picks the speaker)
-  PUN_FALLBACK: ['Have at you, tiny human!', 'You’ll regret stepping onto this desk.', 'En garde!', 'This’ll only hurt a lot.'],
+  PUN_FALLBACK: ['Have at you, tiny human!', 'Step to me, better step quick!', 'En garde!', 'This’ll only hurt a lot.'],
   PUNS: {
     paperclip: 'Let’s get attached.',
     pen: 'You’re about to get inked.',

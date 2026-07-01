@@ -6,6 +6,8 @@
 (function () {
   "use strict";
   var C = window.CONTENT, E = window.Engine;
+  var S = window.Sound || { play: function () {}, combo: function () {}, unlock: function () {}, isMuted: function () { return false; }, toggleMuted: function () { return false; } };
+  var M = window.Music || { start: function () {}, stop: function () {}, setBiome: function () {}, enterMiniboss: function () {}, enterBoss: function () {}, bossPhase: function () {}, clearBoss: function () {}, isMuted: function () { return false; }, toggleMuted: function () { return false; }, setVolume: function () {}, getVolume: function () { return 0; } };
   var $ = function (id) { return document.getElementById(id); };
   var rng = Math.random;
   /* ---- art layer: <img> with silent emoji fallback ----------------------
@@ -77,7 +79,9 @@
     { id: 'gladiator',   emoji: '🗡️', name: 'Gladiator',     unlock: 'condition', hint: 'Win a run after dropping to the brink' },
     { id: 'cowboy',      emoji: '🤠', name: 'Cowboy',        unlock: 'condition', hint: 'Earn a fortune in beans, all-time' },
     { id: 'viking',      emoji: '🪖', name: 'Viking',        unlock: 'condition', hint: 'Land one colossal hit' },
-    { id: 'detective',   emoji: '🕵️', name: 'Detective',     unlock: 'condition', hint: 'Read how the game works' }
+    { id: 'detective',   emoji: '🕵️', name: 'Detective',     unlock: 'condition', hint: 'Read how the game works' },
+    { id: 'gremlin',     emoji: '👺', name: 'Gremlin',       unlock: 'condition', hint: 'Clear the miniboss at 0 HP and press on' },
+    { id: 'headless',    emoji: '🎃', name: 'Headless',      unlock: 'condition', hint: 'Die to your own Bloodroll reroll' }
   ];
   // ---- persistence: the bank (permanent progression) survives reloads via localStorage ----
   var SAVE_KEY = 'underfoot.bank.v1';
@@ -108,6 +112,14 @@
       setTimeout(function () { showSkinToast(s); }, i * 350);   // stagger if several land at once
     });
     saveBank();   // ownership was written engine-side; persist it now
+  }
+  // view-side one-shot unlock for condition skins the view detects directly
+  // (gremlin, headless): mark owned, persist, and toast — fires once, never throws.
+  function unlockSkin(id) {
+    if (!state.bank.skins) state.bank.skins = {};
+    if (state.bank.skins[id]) return;
+    var s = SKINS.find(function (x) { return x.id === id; }); if (!s) return;
+    state.bank.skins[id] = true; saveBank(); showSkinToast(s);
   }
   function showSkinToast(s) {
     var host = $('game') || document.body;
@@ -148,6 +160,7 @@
   }
   var state = { bank: loadBank() };
   var busy = false;
+  var bossPhased = false;   // guard: fire Music.bossPhase(2) once per fight, on the engine's 50% flip
 
   /* ---- animation helpers (Web Animations API; respect reduced-motion) ---- */
   var prefersReduced = function () { return matchMedia('(prefers-reduced-motion: reduce)').matches; };
@@ -179,6 +192,7 @@
         '</div>' +
         '<button class="wschar" id="wschar">' + artImg('skin', currentSkin().id, currentSkin().emoji, { cls: 'wsart' }) + '<div class="wssub">Tap to change skin · Ready for the desk.</div></button>' +
         challengeBtn(b) +
+        '<img class="wsbanner" src="art/banner/kitchen_coming_soon.svg" alt="Kitchen biome — coming soon" draggable="false">' +
         '<button class="wsgo" id="beginrun">One more run?</button>' +
         '<div class="wslinks"><button class="wslink" id="wsStats">📊 Stats</button><button class="wsreset" id="wsReset">Reset progress</button></div>' +
       '</div>';
@@ -187,7 +201,7 @@
     $('wschar').onclick = showSkins;
     $('wsChal').onclick = function () { E.cycleChallenge(state.bank); saveBank(); showWorkshop(); };
     $('wsStats').onclick = showStats;
-    $('beginrun').onclick = function () { E.startRun(state, rng); busy = false; enterPhase(); };
+    $('beginrun').onclick = function () { E.startRun(state, rng); busy = false; M.setBiome('desk'); M.start(); enterPhase(); };
     $('wsReset').onclick = function () {
       if (!confirm('Wipe all permanent progression and start fresh?')) return;
       try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
@@ -263,11 +277,11 @@
         '<div class="cards">' + rows + '</div>' +
         '<div class="reveal">Cosmetics</div><div class="cards">' + skinRows + '</div>' +
         '<button class="bigbtn ghost" id="shopback">Back</button>';
-      ov.querySelectorAll('[data-buy]').forEach(function (btn) { btn.onclick = function () { E.buy(state, btn.dataset.buy); saveBank(); render(); }; });
+      ov.querySelectorAll('[data-buy]').forEach(function (btn) { btn.onclick = function () { E.buy(state, btn.dataset.buy); S.play('purchase'); saveBank(); render(); }; });
       ov.querySelectorAll('[data-buyskin]').forEach(function (btn) { btn.onclick = function () {
         var s = SKINS.find(function (x) { return x.id === btn.dataset.buyskin; });
         if (!s || skinOwned(s) || b.currency < s.cost) return;
-        b.currency -= s.cost; b.skins[s.id] = true; saveBank(); render();
+        b.currency -= s.cost; b.skins[s.id] = true; S.play('purchase'); saveBank(); render();
       }; });
       $('shopback').onclick = showWorkshop;
     }
@@ -462,21 +476,64 @@
     ], { duration: total, easing: 'ease-in-out' });
     return a.then(function () { clearInterval(flick); clearTimeout(restore); dieEl.innerHTML = finalHTML; });
   }
+  // Echo juice: two dice tumble in, then the higher pip crushes/absorbs the lower
+  // before the kept value settles. Truthful — reads the pair the engine recorded
+  // (die._echoRolls); no game logic here.
+  function echoRollAnim(dieEl, die) {
+    if (!dieEl) return Promise.resolve();
+    var finalHTML = dieEl.innerHTML, rolls = (die._echoRolls || []).slice(), winner = die.value;
+    if (prefersReduced() || !dieEl.animate || rolls.length < 2) { dieEl.innerHTML = finalHTML; return Promise.resolve(); }
+    function pv(x) { return x === 'W' ? 1 : (x === 1 ? 6 : x); }              // mirror pip weight (1 strikes as 6) for "which looks higher"
+    var pool = rolls.slice(), wi = pool.indexOf(winner); if (wi > -1) pool.splice(wi, 1);
+    pool.sort(function (a, b) { return pv(b) - pv(a); });
+    var loser = pool.length ? pool[0] : winner;                              // the highest of the discarded rolls
+    function face(v) { return v === 'W' ? '<div class="wildface">★</div>' : pips(v); }
+    var wrap = document.createElement('div'); wrap.className = 'echowrap';
+    var gl = document.createElement('div'), gr = document.createElement('div');
+    gl.className = 'echoghost gl'; gr.className = 'echoghost gr';
+    wrap.appendChild(gl); wrap.appendChild(gr);
+    dieEl.innerHTML = ''; dieEl.appendChild(wrap);
+    var tumble = 380, flick = setInterval(function () { gl.innerHTML = face(1 + Math.floor(rng() * 6)); gr.innerHTML = face(1 + Math.floor(rng() * 6)); }, 55);
+    anim(gl, [{ transform: 'translateX(-30%) translateY(0) rotate(0)' }, { transform: 'translateX(-34%) translateY(-13px) rotate(-8deg)' }, { transform: 'translateX(-30%) translateY(0) rotate(0)' }], { duration: tumble, easing: 'ease-in-out' });
+    anim(gr, [{ transform: 'translateX(30%) translateY(0) rotate(0)' }, { transform: 'translateX(34%) translateY(-16px) rotate(7deg)' }, { transform: 'translateX(30%) translateY(0) rotate(0)' }], { duration: tumble, easing: 'ease-in-out' });
+    return delay(tumble).then(function () {
+      clearInterval(flick);
+      gl.innerHTML = face(loser); gr.innerHTML = face(winner);              // reveal the real pair
+      var crush = 260;
+      var la = anim(gl, [{ transform: 'translateX(-30%) scale(1)', opacity: 1 }, { transform: 'translateX(0%) scale(.18)', opacity: 0 }], { duration: crush, easing: 'ease-in' });   // loser absorbed
+      anim(gr, [{ transform: 'translateX(30%) scale(1)' }, { transform: 'translateX(0%) scale(1.3)' }, { transform: 'translateX(0%) scale(1)' }], { duration: crush + 120, easing: 'ease-out' });   // winner engulfs
+      return la.then(function () { return delay(130); });
+    }).then(function () {
+      dieEl.innerHTML = finalHTML;
+      return anim(dieEl, [{ transform: 'scale(1.16)' }, { transform: 'scale(.96)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
+    }).then(function () { dieEl.innerHTML = finalHTML; });
+  }
+  // pick the right roll animation for a die (Echo gets the double-roll crush)
+  function dieRollAnim(dieEl, die) {
+    if (die && die.feature === 'echo' && die._echoRolls && die._echoRolls.length >= 2) return echoRollAnim(dieEl, die);
+    return rollDieAnim(dieEl, die ? die.value : undefined);
+  }
   // cascade: roll every die staggered, so a fresh turn's roll tumbles in sequence
   function rollAllDice() {
     var p = state.player; if (!p) return;
+    S.play('roll');   // whole-hand tumble
     p.dice.forEach(function (die, i) {
       delay(i * 50).then(function () {
         var el = document.querySelectorAll('.dicerow .die')[i];
-        if (el) rollDieAnim(el, die.value);
+        if (el) dieRollAnim(el, die);
       });
     });
   }
   function reroll(i) {
     if (busy || state.phase !== 'player') return;
+    S.unlock();
     if (!E.rerollDie(state, i, rng)) return;
+    if (state.player.hp <= 0) {   // fatal Bloodroll: you spent your last HP on this reroll
+      renderAll(); S.play('playerHurt'); unlockSkin('headless'); E.loseRun(state); runOver('lose'); return;
+    }
+    S.play('lock');   // soft tick for poking a single die
     renderAll();
-    rollDieAnim(document.querySelectorAll('.dicerow .die')[i], state.player.dice[i].value);
+    dieRollAnim(document.querySelectorAll('.dicerow .die')[i], state.player.dice[i]);
   }
   async function doAttack() {
     if (busy || state.phase !== 'player') return;
@@ -484,11 +541,14 @@
     busy = true; $('attackbtn').disabled = true;
     var targetIdx = state.targetIdx, targetEl = enemyEl(targetIdx);   // capture the LIVE target before resolving
     var aliveBefore = state.enemies.map(function (e) { return e.hp > 0; });
+    var shieldBefore = state.player.shield;   // detect shield gained during this attack (Aegis etc.)
     var res = E.attack(state, rng);
     renderPlayer();   // update player hp/shield/armor WITHOUT rebuilding enemies (keeps live elements for knock-off)
 
     // hero lunge toward the target at the moment of impact
     var lunge = heroLunge(targetEl);
+    S.play('attack'); S.combo(res.ev ? res.ev.baseMult : 1);   // thud + combo-scaled stinger
+    if (state.player.shield > shieldBefore) S.play('shield');
     if (!prefersReduced()) await delay(150);
 
     if (res.coin === 0) flash($('hero'), 'NOTHING!', '#9fb3ac');
@@ -498,6 +558,7 @@
     if (res.ev && res.ev.baseMult >= C.COMBOS['Four of a Kind']) await delay(60);
 
     // floaters + hurts on the live elements; primary-target floater scales/heats with the combo mult
+    if (res.hits.some(function (h) { return h.amount > 0; })) S.play('enemyHurt');   // once, not per hit
     res.hits.forEach(function (h) {
       var el = enemyEl(h.i); if (!el) return; hurt(el);
       if (h.immune) { flash(el.querySelector('.sprite'), 'IMMUNE', '#9fb3ac'); return; }
@@ -516,8 +577,8 @@
     state.enemies.forEach(function (e, i) {
       if (aliveBefore[i] && e.hp <= 0) { var el = enemyEl(i); if (el) knocks.push(knockOff(el)); }
     });
-    if (res.heal > 0) flash($('hero'), '+' + res.heal, '#5fcf8f');
-    if (res.spiked > 0) { hurt($('hero')); flash($('hero'), '🔱−' + res.spiked, '#ff9b9b'); }
+    if (res.heal > 0) { flash($('hero'), '+' + res.heal, '#5fcf8f'); S.play('heal'); }
+    if (res.spiked > 0) { hurt($('hero')); flash($('hero'), '🔱−' + res.spiked, '#ff9b9b'); S.play('playerHurt'); }
     beanBurst(aliveBefore);
 
     // screen shake scaled to the hit magnitude
@@ -530,6 +591,7 @@
 
     var aliveBefore2 = state.enemies.map(function (e) { return e.hp > 0; });
     var et = E.enemyTurn(state); renderAll();   // rebuilds: dead enemies settle to the static .dead end-state
+    if (!bossPhased && state.enemies.some(function (e) { return e.role === 'boss' && e._flipped; })) { bossPhased = true; M.bossPhase(2); }
     et.actions.forEach(function (a) {
       var idx = state.enemies.indexOf(a.enemy), el = enemyEl(idx);
       if (a.type === 'attack') flash($('hero'), '−' + a.total + (a.riposte ? ' ↩' : ''), '#ff7b7b');
@@ -541,17 +603,20 @@
     });
     beanBurst(aliveBefore2);
     if (et.actions.some(function (a) { return a.type === 'attack'; })) {
+      S.play('playerHurt');
       $('playerzone').classList.add('hurt'); setTimeout(function () { $('playerzone').classList.remove('hurt'); }, 300);
       screenShake(6);   // player took a hit
     }
     await delay(650);
 
-    if (et.playerDead) { E.loseRun(state); runOver(false); return; }
+    if (et.playerDead) { E.loseRun(state); runOver('lose'); return; }
     if (et.allDead) { afterCombat(E.winFight(state)); return; }   // Thorns can kill the last enemy on its own turn
     E.advanceAfterEnemy(state, rng); busy = false; renderAll(); rollAllDice();   // fresh turn → cascade roll
   }
   // dispatch on engine phase after a combat win or a node transition
   function afterCombat(r) {
+    S.play('win');   // a fight was just cleared
+    M.clearBoss();   // drop any intensity layers back to the biome bed
     if (r === 'win') return runOver('win');
     if (r === 'miniboss') return showMiniboss();
     showRewards();   // 'reward'
@@ -567,7 +632,12 @@
       case 'event': return showEvent();
       case 'reward': return showRewards();
       case 'win': return runOver('win');
-      default: $('overlay').style.display = 'none'; renderAll(); rollAllDice();   // fresh fight → cascade roll
+      default:
+        // music intensity keyed off the node kind we're about to fight
+        bossPhased = false;
+        var pos = state.run.pos, nt = pos && state.map.cols[pos.col][pos.row].type;
+        if (nt === 'boss') M.enterBoss(); else if (nt === 'miniboss') M.enterMiniboss(); else M.clearBoss();
+        $('overlay').style.display = 'none'; renderAll(); rollAllDice();   // fresh fight → cascade roll
     }
   }
   function proceed() { E.toMap(state); enterPhase(); }   // back to the map to pick the next node
@@ -662,14 +732,32 @@
     return '<div class="facerow">' + faces.map(function (v, i) { return faceCell(v, changed && changed[i] ? 'changed' : ''); }).join('') + '</div>';
   }
   function dieTag(d, i) { return 'Die ' + (i + 1) + (d.feature ? ' · ' + C.FEATURES[d.feature].icon : '') + (d.anchor ? ' ⚓' : ''); }
-  // entry point from a reward/premium card: route by effect kind
-  function applyWithTarget(u, isPremium, onComplete) {
+  // guard: applying a die FEATURE over a different existing one asks first
+  // (one feature per die). onCancel returns to die selection. Non-feature effects
+  // (anchor/splitter) and same-feature level-ups pass straight through.
+  function confirmFeatureReplace(idx, u, onConfirm, onCancel) {
+    var d = state.player.dice[idx];
+    if (!(u.effect === 'addFeature' && d.feature && d.feature !== u.feature)) return onConfirm();
+    var ov = $('overlay'); ov.style.display = 'flex';
+    var cur = C.FEATURES[d.feature], nw = C.FEATURES[u.feature];
+    ov.innerHTML = '<h2 class="win">Replace feature?</h2>' +
+      '<p>Die ' + (idx + 1) + ' already has <b>' + cur.icon + ' ' + cur.name + '</b>. Replace with <b>' + nw.icon + ' ' + nw.name + '</b>?</p>' +
+      '<div class="rowbtns"><button class="bigbtn ghost" id="frno">Cancel</button><button class="bigbtn" id="fryes">Replace</button></div>';
+    $('fryes').onclick = onConfirm; $('frno').onclick = onCancel;
+  }
+  // entry point from a reward/premium card (or reforge, via applyFn): route by effect kind
+  function applyWithTarget(u, isPremium, onComplete, applyFn) {
     var kind = E.effectKind(u.effect), dice = state.player.dice;
     if (kind === 'global') { doApply(u, isPremium, undefined); return onComplete(); }
-    if (kind === 'die') { if (dice.length === 1) { doApply(u, isPremium, 0); return onComplete(); } return showDiePicker(u, isPremium, onComplete); }
+    if (kind === 'die') {
+      // single die still routes through the picker when it would overwrite a feature (so Cancel has a target)
+      var replaces = u.effect === 'addFeature' && dice[0] && dice[0].feature && dice[0].feature !== u.feature;
+      if (dice.length === 1 && !replaces) { doApply(u, isPremium, 0); return onComplete(); }
+      return showDiePicker(u, isPremium, onComplete);
+    }
     // face: single die -> straight to preview; else choose first
-    if (dice.length === 1) return showFacePreview(u, isPremium, 0, onComplete);
-    return showFaceChooser(u, isPremium, onComplete);
+    if (dice.length === 1) return showFacePreview(u, isPremium, 0, onComplete, applyFn);
+    return showFaceChooser(u, isPremium, onComplete, applyFn);
   }
   function showDiePicker(u, isPremium, onComplete) {
     var ov = $('overlay'); ov.style.display = 'flex';
@@ -679,24 +767,29 @@
       return '<button class="diepick" data-i="' + i + '"><div class="dplabel">Die ' + (i + 1) + '</div>' + faceCell(d.value, 'big') + feat + anc + '</button>';
     }).join('');
     ov.innerHTML = '<div class="reveal">' + u.name + '</div><h2 class="win">Choose a die</h2><p>' + u.desc + '</p><div class="diegrid">' + tiles + '</div>';
-    ov.querySelectorAll('.diepick').forEach(function (b) { b.onclick = function () { doApply(u, isPremium, +b.dataset.i); onComplete(); }; });
+    ov.querySelectorAll('.diepick').forEach(function (b) {
+      b.onclick = function () {
+        var idx = +b.dataset.i;
+        confirmFeatureReplace(idx, u, function () { doApply(u, isPremium, idx); onComplete(); }, function () { showDiePicker(u, isPremium, onComplete); });
+      };
+    });
   }
-  function showFaceChooser(u, isPremium, onComplete) {
+  function showFaceChooser(u, isPremium, onComplete, applyFn) {
     var ov = $('overlay'); ov.style.display = 'flex';
     var tiles = state.player.dice.map(function (d, i) {
       return '<button class="diepick wide" data-i="' + i + '"><div class="dplabel">' + dieTag(d, i) + '</div>' + faceTiles(d.faces) + '</button>';
     }).join('');
     ov.innerHTML = '<div class="reveal">' + u.name + '</div><h2 class="win">Choose a die</h2><p>' + u.desc + '</p><div class="diegrid">' + tiles + '</div>';
-    ov.querySelectorAll('.diepick').forEach(function (b) { b.onclick = function () { showFacePreview(u, isPremium, +b.dataset.i, onComplete); }; });
+    ov.querySelectorAll('.diepick').forEach(function (b) { b.onclick = function () { showFacePreview(u, isPremium, +b.dataset.i, onComplete, applyFn); }; });
   }
-  function showFacePreview(u, isPremium, idx, onComplete) {
+  function showFacePreview(u, isPremium, idx, onComplete, applyFn) {
     var ov = $('overlay'); ov.style.display = 'flex';
     var d = state.player.dice[idx], multi = state.player.dice.length > 1;
     ov.innerHTML = '<div class="reveal">' + u.name + '</div><h2 class="win">' + dieTag(d, idx) + '</h2>' +
       '<p>Current faces. ' + u.desc + '</p>' + faceTiles(d.faces) +
       '<div class="rowbtns">' + (multi ? '<button class="bigbtn ghost" id="fpback">Back to dice</button>' : '') + '<button class="bigbtn" id="fpok">Confirm</button></div>';
-    $('fpok').onclick = function () { var before = d.faces.slice(); doApply(u, isPremium, idx); showFaceDiff(u, idx, before, onComplete); };
-    if (multi) $('fpback').onclick = function () { showFaceChooser(u, isPremium, onComplete); };
+    $('fpok').onclick = function () { var before = d.faces.slice(); (applyFn ? applyFn(idx) : doApply(u, isPremium, idx)); showFaceDiff(u, idx, before, onComplete); };
+    if (multi) $('fpback').onclick = function () { showFaceChooser(u, isPremium, onComplete, applyFn); };
   }
   function showFaceDiff(u, idx, before, onComplete) {
     var ov = $('overlay'); ov.style.display = 'flex';
@@ -737,6 +830,7 @@
     function buyOffer(u) {
       var cost = E.runShopCost(state, u.id);
       if (s.bought >= 3 || state.player.runCurrency < cost) return;
+      S.play('purchase');
       state.player.runCurrency -= cost; s.bought++;
       s.offers = s.offers.filter(function (x) { return x.id !== u.id; });
       applyWithTarget(u, false, function () { showShopNode(); });   // applies effect (+ enemy scaling), like a reward
@@ -783,17 +877,16 @@
         var mods = ['forge', 'load', 'brand', 'engrave', 'uniform', 'polish'];
         var btns = mods.map(function (m) { var u = C.UPGRADES.find(function (x) { return x.id === m; }); return '<button class="card rfmod" data-m="' + m + '"><div class="ct">' + u.name + '</div><div class="cd">' + u.desc + '</div></button>'; }).join('');
         ov.innerHTML = '<h2 class="win">Which face mod?</h2><div class="cards">' + btns + '</div><button class="bigbtn ghost" id="rfback">Back</button>';
-        ov.querySelectorAll('.rfmod').forEach(function (b) { b.onclick = function () { pickDieForMod(b.dataset.m); }; });
+        // route through the SAME face preview/confirm/diff the reward cards use; charge on confirm
+        ov.querySelectorAll('.rfmod').forEach(function (b) { b.onclick = function () {
+          var m = b.dataset.m, u = C.UPGRADES.find(function (x) { return x.id === m; });
+          applyWithTarget(u, false, function () { main('Stamped into the die.'); }, function (idx) { E.reforgeFaceMod(state, idx, m); });
+        }; });
       } else if (op === 'transfer') {
         ov.innerHTML = '<h2 class="win">Move from which die?</h2><p>Pick the source (must have a feature).</p><div class="diegrid">' + dieGrid(function (d) { return !!d.feature; }) + '</div><button class="bigbtn ghost" id="rfback">Back</button>';
         bindDice(function (from) { chooseTarget(from); });
       }
       $('rfback').onclick = function () { main(); };
-    }
-    function pickDieForMod(m) {
-      ov.innerHTML = '<h2 class="win">Stamp onto which die?</h2><div class="diegrid">' + dieGrid(null) + '</div><button class="bigbtn ghost" id="rfback">Back</button>';
-      bindDice(function (i) { E.reforgeFaceMod(state, i, m); main('Stamped into the die.'); });
-      $('rfback').onclick = function () { pick('facemod'); };
     }
     function chooseTarget(from) {
       ov.innerHTML = '<h2 class="win">Move to which die?</h2><div class="diegrid">' + dieGrid(function (d, i) { return i !== from; }) + '</div><button class="bigbtn ghost" id="rfback">Back</button>';
@@ -831,9 +924,12 @@
       '<div class="cards"><div class="card" id="leave"><div class="ct">Leave with the loot</div><div class="cd">Bank 🫘 ' + C.RUN.leaveBonus + ' now. Safe.</div></div>' +
       '<div class="card" id="press"><div class="ct">Press on</div><div class="cd">Continue to node 20. Bigger prize, real risk.</div></div></div>';
     $('leave').onclick = function () { E.leaveRun(state); runOver('left'); };
-    $('press').onclick = function () { proceed(); };
+    // gremlin: "I died, but I lived" — cleared the miniboss at 0 HP and chose to press on
+    $('press').onclick = function () { if (state.player.hp <= 0) unlockSkin('gremlin'); proceed(); };
   }
   function runOver(kind) {
+    if (kind === 'lose') S.play('lose');
+    M.clearBoss();
     // first win at a Challenge tier unlocks its skin (persisted via the saveBank below)
     var unlockedSkin = null;
     if (kind === 'win' && state.player) {
@@ -1051,6 +1147,46 @@
     syncOv();
   })();
   $('attackbtn').onclick = doAttack;
+  // audio: unlock on the first gesture, and a generic UI tick for any button that
+  // doesn't already play a more specific sound (attack thud, purchase chime, mute).
+  document.addEventListener('click', function (ev) {
+    S.unlock();   // resume the shared audio ctx on the first gesture (music starts at run start)
+    var btn = ev.target.closest('button'); if (!btn) return;
+    if (btn.id === 'attackbtn' || btn.id === 'mutebtn') return;
+    if (btn.closest('.audiopop')) return;   // popover has its own handlers
+    if (btn.matches('[data-buy],[data-buyskin],.shopoffer')) return;
+    S.play('button');
+  });
+  // top-bar speaker → a small settings popover with separate SFX + Music controls
+  (function () {
+    var mb = $('mutebtn'); if (!mb) return;
+    var pop = document.createElement('div'); pop.className = 'audiopop'; pop.style.display = 'none';
+    pop.innerHTML =
+      '<div class="aprow"><button class="amute" id="sfxMute"></button><span class="alabel">Effects</span>' +
+        '<input type="range" id="sfxVol" min="0" max="100"></div>' +
+      '<div class="aprow"><button class="amute" id="musMute"></button><span class="alabel">Music</span>' +
+        '<input type="range" id="musVol" min="0" max="100"></div>';
+    $('game').appendChild(pop);
+    function icon(el, m) { el.textContent = m ? '🔇' : '🔊'; }
+    function topIcon() { mb.textContent = (S.isMuted() && M.isMuted()) ? '🔇' : '🔊'; }
+    function sync() {
+      icon($('sfxMute'), S.isMuted()); icon($('musMute'), M.isMuted());
+      $('sfxVol').value = Math.round(S.getVolume() * 100); $('musVol').value = Math.round(M.getVolume() * 100);
+      topIcon();
+    }
+    mb.onclick = function () { pop.style.display = pop.style.display === 'none' ? 'flex' : 'none'; if (pop.style.display === 'flex') sync(); };
+    $('sfxMute').onclick = function () { S.toggleMuted(); sync(); S.play('button'); };
+    $('musMute').onclick = function () { M.toggleMuted(); sync(); };
+    $('sfxVol').oninput = function () { S.setVolume(this.value / 100); topIcon(); };
+    $('musVol').oninput = function () { M.setVolume(this.value / 100); topIcon(); };
+    // close when clicking elsewhere
+    document.addEventListener('click', function (ev) {
+      if (pop.style.display === 'none') return;
+      if (ev.target.closest('.audiopop') || ev.target.closest('#mutebtn')) return;
+      pop.style.display = 'none';
+    });
+    topIcon();
+  })();
   $('playerzone').onclick = function (ev) { if (ev.target.closest('#infobtn')) return; showPlayerStats(); };
   $('infobtn').onclick = function () {
     state.bank.tutorialOpened = true; E.evaluateSkinUnlocks(state); saveBank(); flushSkinUnlocks();   // Detective: opening the tutorial

@@ -373,7 +373,7 @@
   // floor (optional): Ascend won't let a reroll drop below this pip value
   function rollDie(d, rng, floor) {
     var v = rollOnce(d, rng);
-    if (d.feature === 'echo') { for (var k = 0; k < d.flevel; k++) { var r = rollOnce(d, rng); if (pipOf(r) > pipOf(v)) v = r; } }
+    if (d.feature === 'echo') { var rolls = [v]; for (var k = 0; k < d.flevel; k++) { var r = rollOnce(d, rng); rolls.push(r); if (pipOf(r) > pipOf(v)) v = r; } d._echoRolls = rolls; }   // record rolls (pure data) so the view can animate the crush; keeps-max logic unchanged
     if (d.feature === 'ascend' && typeof floor === 'number') {            // literal face value: a reroll never shows a lower number
       var lo = floor; if (d.flevel >= 2 && lo < 4) lo = 4;                // level 2+: never below 4
       if (typeof v === 'number' && v < lo) v = lo;                        // (wild 'W' stays as-is)
@@ -407,7 +407,7 @@
   }
   function rerollDie(state, i, rng) {
     var p = state.player;
-    if (p.rerolls <= 0) { if (!p.bloodroll || p.hp <= 1) return false; p.hp -= 1; }   // Bloodroll: pay HP past the free pool
+    if (p.rerolls <= 0) { if (!p.bloodroll || p.hp <= 0) return false; p.hp -= 1; }   // Bloodroll: pay HP past the free pool (may spend your last HP → a fatal reroll)
     else p.rerolls--;
     if (state.run) state.run.rerollsUsedThisRun++;   // Samurai: count every reroll actually consumed this run
     var d = p.dice[i], prev = d.value; rollDie(d, rng, prev); d._rr = (d._rr || 0) + 1;
