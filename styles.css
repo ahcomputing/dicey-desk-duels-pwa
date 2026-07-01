@@ -13,6 +13,14 @@ body{font-family:ui-rounded,"Segoe UI",system-ui,-apple-system,sans-serif;backgr
 .topbar{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
 .chip{background:var(--mat-deep);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:5px 9px;font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--ink-dim);display:flex;gap:5px;align-items:center}
 .chip b{color:var(--brass);font-weight:800}.topbar .grow{flex:1}
+button.chip{font-family:inherit;line-height:1;cursor:pointer}
+.audiopop{position:absolute;top:46px;right:12px;z-index:40;display:flex;flex-direction:column;gap:8px;
+  background:var(--mat-deep);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.audiopop .aprow{display:flex;align-items:center;gap:8px}
+.audiopop .amute{background:none;border:none;cursor:pointer;font-size:15px;line-height:1;padding:0;width:22px}
+.audiopop .alabel{color:var(--ink-dim);font-size:12px;font-weight:700;width:52px}
+.audiopop input[type=range]{width:110px;accent-color:var(--brass);cursor:pointer}
 .title{font-size:13px;font-weight:900;letter-spacing:.22em;color:var(--brass);opacity:.85}
 .enemies{flex:0 0 auto;min-height:172px;display:flex;justify-content:center;align-items:flex-start;gap:10px;padding:8px 12px 4px;flex-wrap:wrap}
 .enemy{width:100px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;position:relative;transition:transform .12s}
@@ -55,6 +63,10 @@ body{font-family:ui-rounded,"Segoe UI",system-ui,-apple-system,sans-serif;backgr
 .die.rolling{animation:tumble .28s}
 @keyframes tumble{0%{transform:rotate(0) scale(1)}50%{transform:rotate(16deg) scale(.84)}100%{transform:rotate(0) scale(1)}}
 .die .dot{width:9px;height:9px;border-radius:50%;background:var(--pip);align-self:center;justify-self:center;box-shadow:inset 0 1px 1px rgba(0,0,0,.5)}
+/* Echo double-roll: two ghost dice tumble, then the higher crushes the lower */
+.echowrap{position:absolute;inset:0;z-index:5;pointer-events:none}
+.echoghost{position:absolute;top:11%;left:11%;width:78%;height:78%;padding:6px;box-sizing:border-box;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);background:linear-gradient(150deg,var(--bone),var(--bone-shade));border-radius:10px;box-shadow:0 3px 6px rgba(0,0,0,.45),inset 0 1px 2px rgba(255,255,255,.5)}
+.echoghost.gr{z-index:6}
 .die.locked{background:#0c2723;box-shadow:inset 0 2px 6px rgba(0,0,0,.6);cursor:default}
 .die.locked::after{content:"🔒";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;opacity:.5}
 .die.six{box-shadow:0 4px 0 #b9a988,0 0 12px rgba(230,178,76,.55),inset 0 2px 2px rgba(255,255,255,.55)}
@@ -158,6 +170,8 @@ body{font-family:ui-rounded,"Segoe UI",system-ui,-apple-system,sans-serif;backgr
 .info{position:absolute;top:12px;right:14px;z-index:20;background:var(--mat-deep);border:1px solid rgba(255,255,255,.08);border-radius:50%;width:30px;height:30px;font-size:15px;font-weight:900;color:var(--ink-dim);cursor:pointer;display:flex;align-items:center;justify-content:center}
 /* workshop home: shop · character · upgrades */
 .wshome{width:100%;height:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:14px}
+/* decorative "kitchen coming soon" strip — scales to hub width, aspect preserved by the SVG viewBox */
+.wsbanner{width:100%;height:auto;display:block;border-radius:12px;pointer-events:none;opacity:.95;box-shadow:0 3px 10px rgba(0,0,0,.35)}
 .wstopbar{display:flex;align-items:flex-start;justify-content:space-between;width:100%;gap:8px;padding-top:4px}
 .wscorner{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--mat-deep);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:11px 8px;width:84px;color:var(--ink);font-size:12px;font-weight:900;letter-spacing:.04em;cursor:pointer;transition:transform .1s}
 .wscorner:active{transform:scale(.96)}

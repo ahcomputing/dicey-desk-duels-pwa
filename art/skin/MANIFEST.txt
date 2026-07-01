@@ -45,3 +45,5 @@ detective.png          — Detective skin (bonus, unlock TBD). Hero when this sk
 madscientist.png       — Mad Scientist skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧪.
 gladiator.png          — Gladiator skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🛡️.
 monk.png               — Monk skin (bonus, unlock TBD). Hero when this skin is equipped (battle hero, Workshop character, skin picker, player stat panel). Fallback 🧘.
+gremlin.png            — gremlin skin, unlocked by dying to thorns against miniboss but proceeding anyway
+headless.png           — headless horseman, earned by killing self with bloodroll
