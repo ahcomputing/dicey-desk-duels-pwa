@@ -290,9 +290,10 @@
     var a = C.ENEMIES[e.key], up = state.player ? state.player.upgrades : 0, g = state.player ? state.player.greed : 0, atk = Math.round(scaleAtk(a.atk, up, g) * chal(state));
     // windup is never rolled at random — it's mousetrap's signature move, force-added below (keeps desk bosses unchanged)
     var pool = Object.keys(C.SIGNATURES).filter(function (k) { return k !== 'phaseFlip' && k !== 'windup'; });
+    var want = (a.sigCount != null) ? a.sigCount : count;   // per-enemy override: a weak intro miniboss (Gingerbread) can opt out of signatures entirely
     // if the final boss was scouted (Moth at the Lamp), reuse the pre-rolled id set so preview matches the fight
     var bp = state.run && state.run.bossPreview;
-    var pick = (bp && bp.key === e.key) ? bp.ids.slice() : (function () { var s = shuffle(pool, rng).slice(0, count); if (withPhase) s.push('phaseFlip'); return s; })();
+    var pick = (bp && bp.key === e.key) ? bp.ids.slice() : (function () { var s = shuffle(pool, rng).slice(0, want); if (withPhase) s.push('phaseFlip'); return s; })();
     if (e.key === 'mousetrap' && pick.indexOf('windup') < 0) pick.push('windup');   // the SNAP is guaranteed on the kitchen final boss
     e.sig = {}; e._reinforced = 0; e._flipped = false; e._armed = false;
     pick.forEach(function (id) {

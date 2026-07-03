@@ -317,7 +317,7 @@ var CONTENT = {
     skillet:    { icon: '🍳', name: 'Cast-Iron Skillet', hp: 22, atk: 11, gold: 10, role: 'brute', startArmor: 5 },
 
     // --- Minibosses & boss (47-50; role boss, drawn from MAP_KITCHEN.bossKeys when wired) ---
-    gingerbread:{ icon: '🍪', name: 'The Gingerbread Man', hp: 24, atk: 6, gold: 25, role: 'boss', heal: 4, dodge: 0.3 },
+    gingerbread:{ icon: '🍪', name: 'The Gingerbread Man', hp: 24, atk: 6, gold: 25, role: 'boss', heal: 4, dodge: 0.3, sigCount: 0 },   // the weak/funny L5 intro — dodge is its whole gimmick, NO boss signatures (lifelink etc. made it unkillable)
     rancidrat:  { icon: '🐀', name: 'Rancid Rat',   hp: 36, atk: 11, gold: 30, role: 'boss', poisonHit: 2, goldSteal: 3 },
     moldcolossus:{icon: '🟩', name: 'Mold Colossus', hp: 52, atk: 11, gold: 55, role: 'boss', poisonAura: 2, summon: 'spoiledmilk', heal: 7, bossSummonHeal: true },   // the L15 poison wall
     mousetrap:  { icon: '🪤', name: 'The Mousetrap', hp: 62, atk: 15, gold: 80, role: 'boss', summon: 'sugarant' },   // the finale

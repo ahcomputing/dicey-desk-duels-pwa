@@ -75,6 +75,10 @@ BUGFIXES
   landed on the same beat, the run could end in a loss even though you'd cleared
   the board — or soft-lock. Now clearing the board always wins (yes, even at 0 HP);
   dropping to 0 with a foe still standing is the only way that ends in a loss.
+* Fixed: the Gingerbread Man (the L5 kitchen speed-bump) could roll a boss
+  signature such as Lifelink and turn unkillable — immune to all attack damage
+  behind a totem while only poison chipped through. He's the gentle intro he was
+  meant to be again: quick, dodgy, no boss build-checks.
 
 WELCOME TO THE KITCHEN
 ----------------------
