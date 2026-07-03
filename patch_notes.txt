@@ -1,0 +1,120 @@
+DICEY DESK DUELS — BALANCE PATCH (July 2026)
+=============================================
+
+The reroll-economy patch: infinite loops closed, dead picks reworked, and the
+face-mod arms race reined in. Winners: combo builds, Gamblers, and anyone who
+always wanted Jackpot to actually pay out.
+
+And the pantry door swings open: the KITCHEN biome arrives, with a dozen new
+events, ambush minibosses, poison dice, companions that fight at your side, and
+bigger brawls. Mind the mold.
+
+REROLLS & SUSTAIN
+-----------------
+* Bloodroll — paid rerolls past your free pool now cost HP that DOUBLES with
+  each use (1, 2, 4, 8…), resetting at the start of your next turn (was a flat
+  1 HP forever). Roll responsibly.
+* Tide Wall & Bloodletter — only the first 5 rerolls of that die each turn
+  grant their shield / healing. The infinite Bloodroll heal-loop is closed.
+* Free Reroll — removed from the game. It was quietly warping every reroll
+  budget; Patient and Overcharge fill its slot.
+* Patient — now grants +3 rerolls per turn (was +1). Still −15% damage.
+
+DIE FEATURES
+------------
+* Overcharge — reworked: while this die shows a 6, +0.4 combo multiplier per
+  level (was: +1 reroll when it showed a 6).
+* Whetstone — its +2 per reroll now lands on the damage sum BEFORE the combo
+  multiplier. Churn now scales with your combos.
+* Banker — unused rerolls now add this die's pip to the sum before the
+  multiplier (was flat damage added after). Restraint pays combo dividends.
+* Momentum — reworked: +0.1 combo multiplier per consecutive turn the die is
+  left unrerolled (was +1 flat damage). Resets when rerolled — and now also
+  resets when a new fight starts (no more riding one Anchored die all run).
+* Prism — simplified: a flat +0.2 combo multiplier per level, always on
+  (was: +0.2 per die currently showing a 6).
+* Kindle — its cap now grows with level: +1.0 combo multiplier per level.
+* Jackpot — five-of-a-kind now pays 100 beans per level (was 5). Jackpot!
+* Shockwave — 8% of primary damage per charge (was 10%); the Amplified
+  enhancer is now 12% (was 15%).
+* Bubble: Reinforced — +6 flat damage per bubble hit (was +10).
+* Aegis & Vital Surge — combo-multiplier scaling reduced to ×1.5 (was ×2).
+* Ricochet — bolts hit for 15% of primary damage per level (was 10%).
+
+FACE MODS (they were VERY good — now they're merely great)
+----------------------------------------------------------
+* Forge a Die, Load a Die, Engrave a Die — capped at 3 pickups per run each.
+* Polish a Die — capped at 2 pickups per run.
+* Load a Die — reworked: raises a die's two lowest faces by one.
+* Engrave a Die — reworked: raises a die's THREE lowest faces by one.
+* Brand a Die — now a treasure premium: no per-run cap, but the gift node is
+  the only reliable source. Removed from the Reforge workbench (the Whetstone
+  Outcrop event can still brand you a die if fortune smiles).
+* Reforge workbench — face-mod stamps are limited to 2 per visit.
+
+RUN-WIDE UPGRADES & WORKSHOP
+----------------------------
+* Ward — grants 5 shield at the start of each turn (was 2).
+* Bulwark Stance — +16 shield per turn (was +8). Still −20% damage.
+* Natural Healing — nerfed: each purchase adds +1% to between-fight healing
+  (was +5%). Attrition matters again.
+* Enemy scaling — enemies gain HP slightly faster as you stack rewards
+  (offsets this patch's upgrade buffs; overall difficulty lands where it was).
+
+BUGFIXES
+--------
+* Bulwark + Wildcard: a wild face no longer corrupts your shield value for the
+  rest of the fight. A wild now counts as 1 pip for Bulwark's shield.
+* Momentum no longer carries its stacks from fight to fight.
+* The damage preview now exactly matches the damage dealt for all reworked
+  features (Whetstone, Banker, Momentum, Prism, Overcharge).
+* Fixed: the Attack button could vanish in crowded fights on smaller screens —
+  a summoned enemy would overflow the board and shove the button off-screen.
+  Enemies now tuck into a tidy layout and the button always stays reachable.
+* Fixed a fatal edge case: if a killing blow and a lethal counter (Thorns, spikes)
+  landed on the same beat, the run could end in a loss even though you'd cleared
+  the board — or soft-lock. Now clearing the board always wins (yes, even at 0 HP);
+  dropping to 0 with a foe still standing is the only way that ends in a loss.
+
+WELCOME TO THE KITCHEN
+----------------------
+* BIGGER BATTLES — fights now hold up to SIX enemies at once (was four).
+  Summoners, get cooking.
+* A FULLY STOCKED PANTRY — the kitchen roster is now the whole bestiary: bugs and
+  bites, the mold-and-rot poison crew, fuming peppers, and a drawer of appliances,
+  across three escalating miniboss gates and a final-boss SNAP.
+* POISON, MADE VISIBLE — a 🧪 counter now shows exactly how many poison stacks are
+  ticking on you and on each enemy (it halves every turn).
+* NEW DIE FEATURES, the poison line:
+  - Toxin — each attack poisons your target by that die's PIPS (× level). Roll high
+    to hit hard AND poison hard.
+  - Venom — every reroll of the die (first five each turn) spits venom onto a
+    RANDOM enemy: spread the rot across the whole board.
+  - Blight & Nettle round out the set (combo-scaled poison; poison-thorns).
+* ALLIES — companions have arrived. Recruit one and it strikes a random enemy
+  every turn and sticks with you for the REST of the run (through fights, rests,
+  and bosses alike). They flank your hero and lunge in with their own sound —
+  and a recruited foe now wears its true face (the Rogue Paperclip and the
+  Pitcher's Pitcherling fight in their own sprites).
+
+KITCHEN EVENTS (twelve new "?" encounters)
+------------------------------------------
+* The Scary Bread Man & The Pitcher — "Investigate" at your peril: each is an
+  ambush miniboss. Win and you'll earn a brand-new skin plus a hero's haul of
+  rewards. The Pitcher even leaves a companion behind.
+* The Garbage Disposal — feed it a die; it comes back carrying Toxin.
+* The Spice Rack — three jars of heat: Ghost Pepper (Glass Cannon), an even
+  +15% Seasoned blend with no downside, or Custom Brand — turn every face of a
+  die you pick into a pip you choose.
+* The Vending Machine — insert 100 beans for a random upgrade; take it, or feed
+  the machine again for a fresh roll.
+* The Compost Bin — strip a die's feature and plant a fresh one from three
+  (or walk away with it bare).
+* The Talking Teapot — it has something to say, and 20 beans to share.
+* The Rogue Paperclip — hire a defector from the desk to fight at your side.
+* Kitchen twists on old friends: the Warm Oven Mitt, a Loose Whisk, the Knife
+  Sharpener, and a Fortune Cookie.
+
+NEW SKINS
+---------
+* Bread Man and Pitcher — earned by besting their namesake Kitchen minibosses.

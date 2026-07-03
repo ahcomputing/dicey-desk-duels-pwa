@@ -1,7 +1,6 @@
 /* simple app-shell cache — offline play once installed */
-const CACHE = 'dice-duels-v10';
+const CACHE = 'dice-duels-v12';
 const SHELL = ['.', 'index.html', 'styles.css', 'content.js', 'engine.js', 'audio.js', 'music.js', 'view.js', 'manifest.webmanifest',
-  'art/banner/kitchen_coming_soon.svg',
   'favicon.ico', 'favicon.svg', 'favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png',
   'icon-192.png', 'icon-512.png', 'icon-192-maskable.png', 'icon-512-maskable.png'];
 // NOTE: art/ files are intentionally NOT in SHELL — they may not exist yet, and a

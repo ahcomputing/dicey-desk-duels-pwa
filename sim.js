@@ -1,8 +1,9 @@
 /* ============================================================================
  * sim.js  —  headless balance harness. Auto-plays many runs at several
  * investment tiers and prints win-rate / depth / economy. Pure engine, no DOM.
- *   node sim.js            # default 300 runs/tier
+ *   node sim.js            # default 300 runs/tier, desk biome
  *   node sim.js 1000       # custom run count
+ *   node sim.js 300 kitchen  # run the kitchen biome instead of the desk
  * The auto-player is deliberately simple (a competent-but-not-optimal policy);
  * read the numbers as a relative curve, not an absolute skill ceiling.
  * ========================================================================== */
@@ -12,6 +13,7 @@ var E = require(path.join(__dirname, 'engine.js'));
 var C = global.CONTENT;
 
 var N = parseInt(process.argv[2], 10) || 300;
+var BIOME = (process.argv[3] || 'desk').toLowerCase();   // 'desk' (default) or 'kitchen'
 
 // deterministic-ish RNG so runs are reproducible across invocations
 var seed = 123456789;
@@ -50,9 +52,9 @@ function chooseTarget(st) {
   return live[0].i;
 }
 
-var REWARD_PREF = ['forge', 'load', 'echo', 'freeroll', 'overcharge', 'engrave', 'magnet',
-  'whetstone', 'bulwark', 'siphon', 'cleave', 'shockwave', 'bubble', 'twin', 'uniform',
-  'brand', 'momentum', 'banker', 'overflow', 'ascend', 'kindle', 'ward', 'piercer', 'bulkUp', 'patient'];
+var REWARD_PREF = ['forge', 'load', 'echo', 'overcharge', 'engrave', 'magnet',
+  'whetstone', 'bulwark', 'siphon', 'cleave', 'shockwave', 'bubble', 'uniform',
+  'momentum', 'banker', 'overflow', 'ascend', 'kindle', 'ward', 'piercer', 'bulkUp', 'patient'];
 // a cautious player avoids steep HP/reroll-slashing tradeoffs it can't reliably pilot
 var AVOID = { glassCannon: 1, allOrNothing: 1, liveWire: 1, pawnbroker: 1, allInRoll: 1, sacrificialDie: 1, doubleNothing: 1, scarTissue: 1, reckless: 1, greed: 1 };
 function pickReward(offer) {
@@ -66,9 +68,9 @@ function offerHasTopPick(offer) {
   return offer.some(function (u) { return REWARD_PREF.indexOf(u.id) > -1 && REWARD_PREF.indexOf(u.id) < 10 && !AVOID[u.id]; });
 }
 
-function playRun(bank) {
+function playRun(bank, biome) {
   var st = { bank: bank };
-  E.startRun(st, rng);
+  E.startRun(st, rng, biome);
   var guard = 0, beansEarned = 0, visits = {};
   while (guard++ < 1200) {
     var ph = st.phase;
@@ -83,16 +85,17 @@ function playRun(bank) {
       st.targetIdx = chooseTarget(st);
       var r = E.attack(st, rng);
       if (r.allDead) { E.winFight(st); continue; }
+      if (st.player.hp <= 0) { E.loseRun(st); continue; }   // self-kill (spikes/reflect) with foes alive
       var et = E.enemyTurn(st, rng);
-      if (et.playerDead) { E.loseRun(st); }
-      else if (et.allDead) { E.winFight(st); }
+      if (et.allDead) { E.winFight(st); }                   // clearing the board wins even if the player also hit 0
+      else if (et.playerDead) { E.loseRun(st); }
       else E.advanceAfterEnemy(st, rng);
     } else if (ph === 'reward') {
-      var offer = E.offerRewards(st);
-      if (!offerHasTopPick(offer) && st.run.optionRerolls > 0) { E.rerollOffer(st); continue; }   // reroll a junk offer once
+      var offer = E.offerRewards(st, rng);
+      if (!offerHasTopPick(offer) && st.run.optionRerolls > 0) { E.rerollOffer(st, rng); continue; }   // reroll a junk offer once
       var u = pickReward(offer); E.applyReward(st, u.id, rng, undefined);
       if (st.run.pendingRewards <= 0) E.toMap(st);
-    } else if (ph === 'treasure') { if (st.treasure[0]) E.applyPremium(st, st.treasure[0].id, undefined); E.toMap(st); }
+    } else if (ph === 'treasure') { if (st.treasure[0]) E.applyPremium(st, st.treasure[0].id, undefined, rng); E.toMap(st); }
     else if (ph === 'rest') { E.restHeal(st); }
     else if (ph === 'shop') { var best = pickReward(st.shop.offers); if (best) E.buyRunUpgrade(st, best.id, rng, undefined); E.toMap(st); }
     else if (ph === 'reforge') { E.toMap(st); }                      // auto-player skips paid reforge
@@ -101,7 +104,7 @@ function playRun(bank) {
     else break;
   }
   var col = st.run.pos ? st.run.pos.col + 1 : 0;
-  if (st.phase === 'win') col = C.MAP.cols;
+  if (st.phase === 'win') col = st.run.total;   // biome-agnostic (desk & kitchen are both 20, but read from the run)
   return { phase: st.phase, node: col, beans: st.player.runCurrency, visits: visits, upgrades: st.player.upgrades };
 }
 
@@ -122,24 +125,25 @@ function full(b) { b.diceCount = 5; b.hpBought = 8; b.armorBought = 3; b.rerollB
 // ---- run ----------------------------------------------------------------
 function pct(n, d) { return (100 * n / d).toFixed(1) + '%'; }
 function setSeed(s) { seed = s; }
-function runTier(t, n) {
+function runTier(t, n, biome) {
   var win = 0, left = 0, lose = 0, nodeSum = 0, beanSum = 0, upgSum = 0;
   for (var i = 0; i < n; i++) {
-    var r = playRun(t.make());
+    var r = playRun(t.make(), biome);
     if (r.phase === 'win') win++; else if (r.phase === 'left') left++; else lose++;
     nodeSum += r.node; beanSum += r.beans; upgSum += r.upgrades;
   }
   return { win: win, left: left, lose: lose, node: nodeSum / n, beans: beanSum / n, upg: upgSum / n, n: n };
 }
-function report(n) {
-  console.log('Dicey Desk Duels balance sim — ' + n + ' runs/tier\n');
+function report(n, biome) {
+  biome = biome || 'desk';
+  console.log('Dicey Desk Duels balance sim — ' + n + ' runs/tier — ' + biome.toUpperCase() + ' biome\n');
   console.log(['tier', 'win%', 'left%', 'lose%', 'avgNode', 'avgBeans', 'avgUpg'].map(function (s) { return s.padEnd(12); }).join(''));
   tiers.forEach(function (t) {
-    var r = runTier(t, n);
+    var r = runTier(t, n, biome);
     console.log([t.name, pct(r.win, n), pct(r.left, n), pct(r.lose, n), r.node.toFixed(1), r.beans.toFixed(0), r.upg.toFixed(1)]
       .map(function (s) { return String(s).padEnd(12); }).join(''));
   });
 }
 
 module.exports = { playRun: playRun, tiers: tiers, runTier: runTier, setSeed: setSeed, full: full };
-if (require.main === module) report(N);
+if (require.main === module) report(N, BIOME);

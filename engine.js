@@ -8,7 +8,7 @@
   var C = global.CONTENT || (typeof require !== 'undefined' ? require('./content.js') : null);
   var defaultRng = Math.random;
   function rint(n, rng) { return Math.floor((rng || defaultRng)() * n); }
-  function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = rint(i + 1); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function shuffle(a, rng) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = rint(i + 1, rng); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
   /* ---- combo evaluation (1 strikes as 6 for the sum; literal for detection) */
   // detect combo on concrete faces (no wilds). `phantom` (optional) flags Splitter copies:
@@ -132,8 +132,8 @@
   }
 
   /* ---- run / fight setup ------------------------------------------------- */
-  function newDie() { return { faces: [1, 2, 3, 4, 5, 6], value: 1, feature: null, flevel: 0, _rr: 0, _oc: false, _mom: 0 }; }
-  function effRerolls(p) { return p.maxRerolls + p.dice.reduce(function (s, d) { return s + (d.feature === 'freereroll' ? d.flevel : 0); }, 0); }
+  function newDie() { return { faces: [1, 2, 3, 4, 5, 6], value: 1, feature: null, flevel: 0, _rr: 0, _mom: 0 }; }
+  function effRerolls(p) { return p.maxRerolls; }   // kept as the single chokepoint for per-turn reroll pools (rerollTax etc. layer on top)
   function pipOf(v) { return v === 'W' ? 1 : (v === 1 ? 6 : v); }
   function setMaxHp(p, v) { p.maxHp = Math.max(1, Math.round(v)); if (p.hp > p.maxHp) p.hp = p.maxHp; }
   function minFace(d) { var nums = d.faces.filter(function (f) { return typeof f === 'number'; }); return nums.length ? Math.min.apply(null, nums) : 1; }
@@ -145,7 +145,9 @@
     for (var i = 0; i < keys.length; i++) { r -= weights[keys[i]]; if (r < 0) return keys[i]; }
     return keys[keys.length - 1];
   }
-  function bandFor(col) { var b = C.MAP.bands; return col < b.early ? 'early' : col < b.mid ? 'mid' : 'late'; }
+  function bandFor(col, M) { var b = (M || C.MAP).bands; return col < b.early ? 'early' : col < b.mid ? 'mid' : 'late'; }
+  // a column is a miniboss if it's in the biome's minibossCols list (kitchen) or the single scalar (desk)
+  function isMinibossCol(M, c) { return M.minibossCols ? M.minibossCols.indexOf(c) > -1 : c === M.miniboss; }
   function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
   // build a randomized branching DAG: { cols: [ [node,...], ... ] }, node = {type,enemies?,next:[],col,row,_done}
   function generateMap(rng, content) {
@@ -154,7 +156,7 @@
     // 1. column widths (bosses single-lane)
     var widths = [];
     for (var c = 0; c < M.cols; c++) {
-      widths[c] = (c === M.miniboss || c === M.boss) ? 1 : M.widthMin + ri(M.widthMax - M.widthMin + 1);
+      widths[c] = (isMinibossCol(M, c) || c === M.boss) ? 1 : M.widthMin + ri(M.widthMax - M.widthMin + 1);
     }
     // 2. carve `paths` routes col0 -> boss, recording used slots + forward edges
     var used = {}, edges = {};
@@ -188,7 +190,7 @@
     for (var c3 = 0; c3 < M.cols; c3++) {
       cols[c3].forEach(function (node) {
         var col = node.col;
-        if (col === M.miniboss) node.type = 'miniboss';
+        if (isMinibossCol(M, col)) node.type = 'miniboss';
         else if (col === M.boss) node.type = 'boss';
         else if (col === M.preBossRest) node.type = 'rest';
         else if (col < M.fightOnlyCols) node.type = 'fight';
@@ -204,17 +206,25 @@
           if (node.type === 'treasure') treasures++;
         }
         var CC = content || C, s2 = col >= 10;   // stage 2 (cols 10-19) draws from the S2 palette
-        if (node.type === 'fight') node.enemies = pickPool((s2 ? CC.ENCOUNTER_POOLS_S2 : CC.ENCOUNTER_POOLS)[bandFor(col)], ri);
+        if (node.type === 'fight') node.enemies = pickPool((s2 ? CC.ENCOUNTER_POOLS_S2 : CC.ENCOUNTER_POOLS)[bandFor(col, M)], ri);
         else if (node.type === 'elite') node.enemies = pickPool((s2 ? CC.ELITE_POOLS_S2 : CC.ELITE_POOLS)[col < M.bands.mid ? 'mid' : 'late'], ri);
-        else if (node.type === 'miniboss') node.enemies = [M.bossKeys.minibossPool[ri(M.bossKeys.minibossPool.length)]];
-        else if (node.type === 'boss') node.enemies = [M.bossKeys.bossPool[ri(M.bossKeys.bossPool.length)]];
+        else if (node.type === 'miniboss') node.enemies = [M.minibossAt ? M.minibossAt[col] : M.bossKeys.minibossPool[ri(M.bossKeys.minibossPool.length)]];   // kitchen: fixed miniboss per column; desk: random from pool
+        else if (node.type === 'boss') node.enemies = [M.bossKey || M.bossKeys.bossPool[ri(M.bossKeys.bossPool.length)]];
       });
     }
     return { cols: cols };
   }
   function pickPool(pool, ri) { return (pool[ri(pool.length)] || []).slice(); }
 
-  function startRun(state, rng) {
+  // a content view for a non-desk biome: swaps the MAP and aliases the pool tables generateMap reads.
+  // Kitchen has no stage-2 split → alias both encounter slots to one table; elites draw from ELITE_POOLS_KITCHEN.
+  function biomeContent(biome) {
+    if (biome !== 'kitchen') return null;
+    var K = C.ENCOUNTER_POOLS_KITCHEN, EK = C.ELITE_POOLS_KITCHEN;
+    return { MAP: C.MAP_KITCHEN, ENCOUNTER_POOLS: K, ENCOUNTER_POOLS_S2: K, ELITE_POOLS: EK, ELITE_POOLS_S2: EK };
+  }
+  function startRun(state, rng, biome) {
+    biome = biome || 'desk';
     var b = state.bank, maxHp = C.BALANCE.startHp + 5 * b.hpBought;
     var rr = C.BALANCE.baseRerolls + b.rerollBought, tier = challengeTier(b);
     state.player = {
@@ -229,15 +239,17 @@
       healMult: 1 + b.healBought * (C.SHOP.heal.inc / C.BALANCE.healBetweenFights),  // Natural Healing
       comboBonus: 0, berserker: false, greed: 0,
       doubleOrNothing: false, overflowBank: 0, _premiums: {},
-      bubbleFlat: 0, bubblePct: 0.03, bubbleCharge: 0, shockPct: 0.10, shockCharge: 0, shockFocus: false,
+      bubbleFlat: 0, bubblePct: 0.03, bubbleCharge: 0, shockPct: 0.08, shockCharge: 0, shockFocus: false,
       // event-driven: next-fight debuffs (applied at fight start), poison drain, decaying buffs & trickle income
-      pendingDebuffs: [], poison: 0, _accFactor: 1, _tempGreed: 0, timedBuffs: [], trickles: []
+      pendingDebuffs: [], poison: 0, _accFactor: 1, _tempGreed: 0, timedBuffs: [], trickles: [],
+      allies: []   // player pets (event-granted): each deals dmgPerTurn to a random enemy every turn; persist across fights (never cleared in winFight)
     };
-    state.map = generateMap(rng);
+    var bc = biomeContent(biome);
+    state.map = generateMap(rng, bc);
     // Heirloom: start the run with N free pre-applied reward picks (reuses the reward flow)
     // taken/premiums/offered/rounds/death = playtest-stats accumulators (pure data, read at run end)
     var sigCls = C.CLASSES[b.activeClass];
-    state.run = { pos: null, total: C.MAP.cols, round: 1, pendingRewards: b.heirloomBought || 0, optionRerolls: 1, offer: null,
+    state.run = { pos: null, total: (bc ? bc.MAP.cols : C.MAP.cols), round: 1, biome: biome, pendingRewards: b.heirloomBought || 0, optionRerolls: 1, offer: null,
                   signature: (sigCls && sigCls.signature && !isDisabled(b, sigCls.signature)) ? sigCls.signature : null,   // class AoE guaranteed in the first reward offer
                   scoutCol: null, bossPreview: null,   // event-driven map scouting (Moth at the Lamp)
                   rerollsUsedThisRun: 0, lowestHpPctThisRun: 1,   // per-run achievement trackers (Samurai / Gladiator)
@@ -258,10 +270,10 @@
     state.run.pos = { col: col, row: row };
     var node = currentNode(state);
     if (node.type === 'rest') { state.phase = 'rest'; return; }
-    if (node.type === 'treasure') { state.phase = 'treasure'; state.treasure = shuffle(enabledPool(state, C.PREMIUMS).filter(function (u) { return premiumAvailable(state, u); })).slice(0, 2); return; }
-    if (node.type === 'shop') { state.phase = 'shop'; state.shop = { offers: shuffle(enabledPool(state, C.UPGRADES).filter(function (u) { return runRewardAvailable(state, u); })).slice(0, 5), bought: 0 }; return; }
-    if (node.type === 'reforge') { state.phase = 'reforge'; return; }
-    if (node.type === 'event') { state.phase = 'event'; var epool = C.EVENTS.filter(function (e) { return (e.minCol || 0) <= col; }); state.event = epool[rint(epool.length, rng)]; return; }
+    if (node.type === 'treasure') { state.phase = 'treasure'; state.treasure = shuffle(enabledPool(state, C.PREMIUMS).filter(function (u) { return premiumAvailable(state, u); }), rng).slice(0, 2); return; }
+    if (node.type === 'shop') { state.phase = 'shop'; state.shop = { offers: shuffle(enabledPool(state, C.UPGRADES).filter(function (u) { return runRewardAvailable(state, u); }), rng).slice(0, 5), bought: 0 }; return; }
+    if (node.type === 'reforge') { state.phase = 'reforge'; state.reforge = { mods: 0 }; return; }   // mods: face-mod stamps used this visit (cap 2)
+    if (node.type === 'event') { state.phase = 'event'; var biome = state.run.biome || 'desk'; var epool = C.EVENTS.filter(function (e) { return (e.minCol || 0) <= col && (e.biome || 'desk') === biome; }); state.event = epool[rint(epool.length, rng)]; return; }
     if (node.type === 'miniboss') configureBoss(1, false);
     else if (node.type === 'boss') { var bp = state.run.bossPreview; configureBoss(bp ? bp.count : 2 + rint(2, rng), bp ? bp.phase : true); }   // 2-3 signatures + phase flip (reuse scouted pre-roll if any)
     startFight(state, node.enemies, rng);
@@ -269,16 +281,20 @@
   function spawnEnemy(key, state) {
     var a = C.ENEMIES[key]; if (!a) return null;
     var hp = Math.round(scaleHP(a.hp, state.player.upgrades, state.player.greed) * chal(state));
-    return { key: key, icon: a.icon, name: a.name, role: a.role, hp: hp, maxHp: hp, armor: 0, intent: null, _paid: false };
+    // spawn-time passive: [BUFF] enemies enter already armored (cockroach, rusty can, ...)
+    var armor0 = Math.round((a.startArmor || 0) * chal(state));
+    return { key: key, icon: a.icon, name: a.name, role: a.role, hp: hp, maxHp: hp, armor: armor0, intent: null, poison: 0, _paid: false };
   }
   // assign `count` random signatures (+ optional phaseFlip) to a boss, scaling params to its stats
-  function assignSignatures(e, count, withPhase, state) {
+  function assignSignatures(e, count, withPhase, state, rng) {
     var a = C.ENEMIES[e.key], up = state.player ? state.player.upgrades : 0, g = state.player ? state.player.greed : 0, atk = Math.round(scaleAtk(a.atk, up, g) * chal(state));
-    var pool = Object.keys(C.SIGNATURES).filter(function (k) { return k !== 'phaseFlip'; });
+    // windup is never rolled at random — it's mousetrap's signature move, force-added below (keeps desk bosses unchanged)
+    var pool = Object.keys(C.SIGNATURES).filter(function (k) { return k !== 'phaseFlip' && k !== 'windup'; });
     // if the final boss was scouted (Moth at the Lamp), reuse the pre-rolled id set so preview matches the fight
     var bp = state.run && state.run.bossPreview;
-    var pick = (bp && bp.key === e.key) ? bp.ids.slice() : (function () { var s = shuffle(pool).slice(0, count); if (withPhase) s.push('phaseFlip'); return s; })();
-    e.sig = {}; e._reinforced = 0; e._flipped = false;
+    var pick = (bp && bp.key === e.key) ? bp.ids.slice() : (function () { var s = shuffle(pool, rng).slice(0, count); if (withPhase) s.push('phaseFlip'); return s; })();
+    if (e.key === 'mousetrap' && pick.indexOf('windup') < 0) pick.push('windup');   // the SNAP is guaranteed on the kitchen final boss
+    e.sig = {}; e._reinforced = 0; e._flipped = false; e._armed = false;
     pick.forEach(function (id) {
       if (id === 'damageCap') e.sig.damageCap = Math.max(12, Math.round(e.maxHp * 0.18));
       else if (id === 'shieldSunder') e.sig.shieldSunder = true;
@@ -291,6 +307,7 @@
       else if (id === 'vampiric') e.sig.vampiric = 0.3;
       else if (id === 'regen') e.sig.regen = Math.max(3, Math.round(e.maxHp * 0.05));
       else if (id === 'spikes') e.sig.spikes = 0.2;
+      else if (id === 'windup') e.sig.windup = true;
     });
   }
   // shared so view/engine agree; set by the run/node layer (Phase 3). default: final boss.
@@ -299,7 +316,7 @@
   function startFight(state, enemies, rng) {
     applyPendingDebuffs(state);   // event next-fight debuffs land before enemies spawn (enemyBuff scales HP too)
     state.enemies = enemies.map(function (key) { return spawnEnemy(key, state); });
-    state.enemies.forEach(function (e) { if (e.role === 'boss') assignSignatures(e, bossPlan.count, bossPlan.phase, state); });
+    state.enemies.forEach(function (e) { if (e.role === 'boss') assignSignatures(e, bossPlan.count, bossPlan.phase, state, rng); });
     // Lifelink: spawn the totem add that keeps its boss immune while it lives
     state.enemies.slice().forEach(function (e) {
       if (e.sig && e.sig.lifelink) { var t = spawnEnemy(e.sig.lifelink.key, state); if (t) { t._totem = true; t.name = 'Lifelink Totem'; t.icon = '🪬'; state.enemies.push(t); } }
@@ -309,12 +326,29 @@
       if (e.role === 'boss' && C.ENEMIES[e.key].buffer) { var add = spawnEnemy(C.ENEMIES[e.key].buffer, state); if (add) state.enemies.push(add); }
     });
     state.run.round = 1; state.player.shield = 0; state.targetIdx = 0;
+    state.player.dice.forEach(function (d) { d._mom = 0; });   // Momentum builds anew each fight (else Anchor+Momentum rides the whole run)
     // one enemy delivers a battle-start pun; the view shows it once and clears state.speaker
     var speakers = state.enemies.filter(function (e) { return e.hp > 0 && !e._totem; });
     if (speakers.length) { var sp = speakers[rint(speakers.length, rng)]; state.speaker = { i: state.enemies.indexOf(sp), text: C.PUNS[sp.key] || C.PUN_FALLBACK[rint(C.PUN_FALLBACK.length, rng)] }; }
     else state.speaker = null;
     state.enemies.forEach(function (e) { setIntent(state, e); });
     startPlayerTurn(state, true, rng);
+  }
+  // fresh copy of an ally descriptor so multiple grants don't alias the content-defined object
+  function cloneAlly(a) { return { id: a.id, icon: a.icon, art: a.art, name: a.name, dmgPerTurn: a.dmgPerTurn, target: a.target || 'random' }; }
+  // Custom Brand (Spice Rack): every face of the chosen die becomes the player-picked pip
+  function brandDie(state, dieIndex, pip) { var d = state.player.dice[dieIndex]; if (d) d.faces = d.faces.map(function () { return pip; }); }
+  // give a die a feature by index (Garbage Disposal → poisonDie); honors applyFeature's overwrite/level rules
+  function giveFeature(state, dieIndex, feature) { state._targetDie = dieIndex; applyFeature(state, feature); state._targetDie = null; }
+  // Compost Bin: strip a die's feature, then offer three fresh feature upgrades to (optionally) plant
+  function stripFeature(state, dieIndex) { var d = state.player.dice[dieIndex]; if (d) { d.feature = null; d.flevel = 0; } }
+  function featureOffer(state, rng) { return shuffle(enabledPool(state, C.UPGRADES).filter(function (u) { return u.effect === 'addFeature'; }), rng).slice(0, 3); }
+  // Vending Machine: pay again to redraw the single-upgrade offer (Take is applied via the normal reward flow in the view)
+  function vendingReroll(state, rng) { var p = state.player, c = state.run.vendingCost || 100; if (p.runCurrency < c) return false; p.runCurrency -= c; state.run.vendingOffer = rewardChoices(state, rng).slice(0, 1); return true; }
+  // event → combat ambush (fightThenReward): fight a named roster; winFight resolves run.onWin on victory.
+  function startEventFight(state, keys, onWin, rng) {
+    state.run.onWin = onWin || null; state.run.eventFight = true;
+    startFight(state, keys, rng);   // leaves state.phase === 'player'; the view's default branch renders the fight
   }
   // standard-bearer aura: every living bearer adds flat attack to its allies' hits
   function auraAtk(state, self) {
@@ -334,12 +368,16 @@
     } else if (e.role === 'swarm') {
       e.intent = { type: 'attack', value: atk, hits: a.hits };
     } else if (e.role === 'berserker') {
-      e.intent = { type: 'attack', value: Math.round(scaleAtk(a.atk + (round - 1) * (a.rage || 2), up, g) * ch) + auraAtk(state, e) };
+      e.intent = { type: 'attack', value: Math.round(scaleAtk(a.atk + (round - 1 + (a.startRage || 0)) * (a.rage || 2), up, g) * ch) + auraAtk(state, e) };   // startRage: enters already ramped
     } else if (e.role === 'warden') {
       e.intent = hasAlly(state, e) ? { type: 'armorAlly', value: Math.round((a.wardArmor || 2) * ch) } : { type: 'attack', value: atk };
     } else if (e.role === 'summoner') {
-      e.intent = (round % 2 === 1 && state.enemies.filter(function (o) { return o.hp > 0; }).length < 4)
-        ? { type: 'summon', key: a.summon || 'paperclip' } : { type: 'attack', value: atk };
+      // summonEvery overrides the default odd-round cadence (antline: every turn); board still capped at 6
+      var room = state.enemies.filter(function (o) { return o.hp > 0; }).length < 6;
+      var summonNow = a.summonEvery ? (round % a.summonEvery === 0) : (round % 2 === 1);
+      e.intent = (summonNow && room) ? { type: 'summon', key: a.summon || 'paperclip' } : { type: 'attack', value: atk };
+    } else if (e.role === 'poisoner') {
+      e.intent = (round % 2 === 1) ? { type: 'debuff', debuff: 'poison', value: a.poisonCast || 1 } : { type: 'attack', value: atk };   // cast poison on odd rounds, attack on even (mirrors hexer)
     } else if (e.role === 'hexer') {
       e.intent = (round % 2 === 1) ? { type: 'debuff', debuff: 'hex', value: a.hex || 1 } : { type: 'attack', value: atk };
     } else if (e.role === 'jammer') {
@@ -355,7 +393,18 @@
       e.intent = (round % 2 === 1) ? { type: 'debuff', debuff: 'fog' } : { type: 'attack', value: atk };
     } else if (e.role === 'boss') {
       if (sigVal(e, 'phaseFlip') && !e._flipped && e.hp <= e.maxHp * 0.5) e._flipped = true;
-      if (e._flipped && round % 2 === 1) e.intent = { type: 'debuff', debuff: 'hex', value: 1 };           // phase 2: harasses the dice engine
+      if (sigVal(e, 'windup')) {
+        // Mousetrap: arm for a turn (telegraphed, no damage), then unload a massive SNAP; repeat
+        if (!e._armed) { e._armed = true; e.intent = { type: 'windup' }; }
+        else { e._armed = false; e.intent = { type: 'attack', value: Math.round(scaleAtk(a.atk + (e._flipped ? 4 : 0), up, g) * ch * 2.2), windup: true }; }
+      } else if (a.bossSummonHeal) {
+        // Mold Colossus: cycle summon a spore add → heal the hurt add → attack; poisonAura fires passively in enemyTurn
+        var room = state.enemies.filter(function (o) { return o.hp > 0; }).length < 6;
+        var myAdd = state.enemies.find(function (o) { return o !== e && o.hp > 0 && o.key === a.summon; });
+        if (!myAdd && room) e.intent = { type: 'summon', key: a.summon || 'sugarant' };
+        else if (myAdd && myAdd.hp < myAdd.maxHp) e.intent = { type: 'heal', value: Math.round(scaleAtk(a.heal || 4, up, g) * ch) };
+        else e.intent = { type: 'attack', value: Math.round(scaleAtk((round % 2 === 0 ? a.atk + 5 : a.atk) + (e._flipped ? 4 : 0), up, g) * ch) };
+      } else if (e._flipped && round % 2 === 1) e.intent = { type: 'debuff', debuff: 'hex', value: 1 };     // phase 2: harasses the dice engine
       else e.intent = { type: 'attack', value: Math.round(scaleAtk((round % 2 === 0 ? a.atk + 5 : a.atk) + (e._flipped ? 4 : 0), up, g) * ch) };
     } else {
       e.intent = { type: 'attack', value: atk };
@@ -370,62 +419,123 @@
     dice.forEach(function (d) { var v = d.value; if (v === 'W') return; counts[v] = (counts[v] || 0) + 1; if (counts[v] > bestC) { bestC = counts[v]; best = v; } });
     return best;
   }
+  /* ---- die-feature behaviour registry -------------------------------------
+   * ONE entry per CONTENT.FEATURES key — the single place a die feature's
+   * mechanics live (validate.js enforces the 1:1 pairing, so an unwired
+   * feature is a loud error instead of a silent no-op). A die carries exactly
+   * one feature, so every hook is a single dispatch. Hooks:
+   *   onRoll(d, v, rng, floor) -> v    shape the rolled value (echo, ascend)
+   *   onTurnStart(state, p, d)         fresh-turn upkeep (bulwark, momentum)
+   *   onReroll(state, p, d, rng)       after a manual reroll of this die
+   *   damage(p, d, acc)                damage evaluation (preview == attack):
+   *                                    acc.sum (pre-mult) · acc.kindle (capped +1)
+   *                                    acc.mult (global 5x still rules) · acc.flat (post-mult)
+   *   onAttack(state, p, d, ctx, acc)  attack resolution; ctx {ev, dealt}; add healing to acc.heal
+   *   splash(d, mult) -> dmg           cleave-style splash to every untargeted enemy
+   *   aoe(state, p, d, ctx)            charge AoE; ctx {primary, pierce, rng, hits, living(), hitEnemy(tgt, amt, tag)}
+   *   reflect(p, d) -> dmg             thorns-style reflect when an enemy hits you
+   *   counterBank(d) -> n              rerolls banked for next turn when you are hit
+   *   pierce: true                     attack ignores enemy armor (flevel>=2: also boss damage caps)
+   *   overkill: true                   excess damage chains to lowest-HP enemies (algorithm in attack)
+   */
+  var FEATURE_HOOKS = {
+    cleave:      { splash: function (d, mult) { return Math.round(pipOf(d.value) * mult * d.flevel); } },
+    bulwark:     { onTurnStart: function (state, p, d) { p.shield += (typeof d.value === 'number' ? d.value : 1) * d.flevel; } },   // wild face counts as 1 (raw 'W' would NaN the shield)
+    bulwarkRoll: { onReroll: function (state, p, d) { if (d._rr <= 5) p.shield += pipOf(d.value) * d.flevel; } },        // Tide Wall: first 5 rerolls/turn
+    bulwarkCombo:{ onAttack: function (state, p, d, ctx) { p.shield += Math.round(ctx.ev.mult * 1.5 * d.flevel); } },    // Aegis
+    echo:        { onRoll: function (d, v, rng) {   // record rolls (pure data) so the view can animate the crush; keeps-max logic unchanged
+                     var rolls = [v]; for (var k = 0; k < d.flevel; k++) { var r = rollOnce(d, rng); rolls.push(r); if (pipOf(r) > pipOf(v)) v = r; }
+                     d._echoRolls = rolls; return v; } },
+    overcharge:  { damage: function (p, d, acc) { if (d.value === 6) acc.mult += 0.4 * d.flevel; } },
+    banker:      { damage: function (p, d, acc) { acc.sum += p.rerolls * pipOf(d.value) * d.flevel; } },   // pre-mult: restraint scales with your combo
+    whetstone:   { damage: function (p, d, acc) { acc.sum += (d._rr || 0) * 2 * d.flevel; } },
+    siphon:      { onAttack: function (state, p, d, ctx, acc) { acc.heal += pipOf(d.value) * d.flevel; } },
+    siphonRoll:  { onReroll: function (state, p, d) { if (d._rr <= 5) p.hp = Math.min(p.maxHp, p.hp + pipOf(d.value) * d.flevel); } },   // Bloodletter: first 5 rerolls/turn
+    siphonCombo: { onAttack: function (state, p, d, ctx, acc) { acc.heal += Math.round(ctx.ev.mult * 1.5 * d.flevel); } },   // Vital Surge
+    siphonDamage:{ onAttack: function (state, p, d, ctx, acc) { acc.heal += Math.round(ctx.dealt * 0.1 * d.flevel); } },  // Leech: lifesteal of primary
+    thorns:      { reflect: function (p, d) { return pipOf(d.value) * d.flevel; } },
+    thornsCombo: { reflect: function (p, d) { return Math.round((p.lastMult || 1) * 2 * d.flevel); } },                   // Bramble
+    thornsPoison:{ reflectPoison: function (p, d) { return pipOf(d.value) * d.flevel; } },                               // Nettle: poison the attacker when it hits you
+    ascend:      { onRoll: function (d, v, rng, floor) {            // literal face value: a reroll never shows a lower number
+                     if (typeof floor !== 'number') return v;
+                     var lo = floor; if (d.flevel >= 2 && lo < 4) lo = 4;   // level 2+: never below 4
+                     return (typeof v === 'number' && v < lo) ? lo : v; } }, // (wild 'W' stays as-is)
+    magnet:      { onReroll: function (state, p, d, rng) { var cv = commonValue(p.dice); if (cv != null && d.faces.indexOf(cv) > -1 && (rng || defaultRng)() < Math.min(1, 0.5 * d.flevel)) d.value = cv; } },
+    momentum:    { onTurnStart: function (state, p, d) { d._mom = (d._mom || 0) + 1; },                                   // another stack per surviving turn
+                   onReroll: function (state, p, d) { d._mom = 0; },                                                      // manual reroll resets the streak
+                   damage: function (p, d, acc) { acc.mult += (d._mom || 0) * 0.1 * d.flevel; } },
+    overflow:    { onAttack: function (state, p, d, ctx) { if (ctx.ev.baseMult >= C.COMBOS['Four of a Kind']) p.overflowBank += 1; } },
+    piercer:     { pierce: true },
+    kindle:      { damage: function (p, d, acc) { acc.kindle += (d._rr || 0) * 0.1; acc.kindleCap = (acc.kindleCap || 0) + d.flevel; } },   // cap grows +1.0 per level
+    shockwave:   { aoe: function (state, p, d, ctx) {
+                     var charges = d.flevel + (p.shockCharge || 0), amt = Math.round(ctx.primary * (p.shockPct || 0.08));
+                     for (var k = 0; k < charges; k++) {
+                       var pool = ctx.living(); if (!pool.length) break;
+                       ctx.hitEnemy(p.shockFocus ? pool.reduce(function (a, b) { return b.hp < a.hp ? b : a; }) : pool[rint(pool.length, ctx.rng)], amt, 'shock');
+                     } } },
+    bubble:      { aoe: function (state, p, d, ctx) {
+                     var bch = d.flevel + (p.bubbleCharge || 0), bamt = Math.round(ctx.primary * (p.bubblePct || 0.03)) + (p.bubbleFlat || 0);
+                     for (var c = 0; c < bch; c++) state.enemies.forEach(function (e) { if (e.hp > 0) ctx.hitEnemy(e, bamt, 'bubble'); }); } },
+    prism:       { damage: function (p, d, acc) { acc.mult += 0.2 * d.flevel; } },
+    counter:     { counterBank: function (d) { return d.flevel; } },
+    jackpot:     { onAttack: function (state, p, d, ctx) { if (ctx.ev.baseMult >= C.COMBOS['Five of a Kind']) addBeans(state, 100 * d.flevel); } },
+    overkill:    { overkill: true },
+    ricochet:    { aoe: function (state, p, d, ctx) {   // Gambler AoE: every reroll made this turn fires a bolt at a random enemy for 10%/level of primary
+                     var rbolts = p.dice.reduce(function (s, x) { return s + (x._rr || 0); }, 0), ramt = Math.round(ctx.primary * 0.15 * d.flevel);
+                     for (var rk = 0; rk < rbolts; rk++) {
+                       var rpool = ctx.living(); if (!rpool.length) break;
+                       ctx.hitEnemy(rpool[rint(rpool.length, ctx.rng)], ramt, 'shock');
+                     } } },
+    poisonDie:   { onAttack: function (state, p, d, ctx) { if (ctx.t && ctx.t.hp > 0) ctx.t.poison = (ctx.t.poison || 0) + pipOf(d.value) * d.flevel; } },   // Toxin: poison the target by this die's pips on each attack (player→enemy DOT)
+    poisonRoll:  { onReroll: function (state, p, d, rng) { if (d._rr <= 5) { var alive = state.enemies.filter(function (e) { return e.hp > 0; }); if (alive.length) { var t = alive[Math.floor((rng || defaultRng)() * alive.length)]; t.poison = (t.poison || 0) + d.flevel; } } } },   // Venom: each of the first 5 rerolls poisons a RANDOM alive enemy
+    poisonCombo: { onAttack: function (state, p, d, ctx) { if (ctx.t && ctx.t.hp > 0) ctx.t.poison = (ctx.t.poison || 0) + Math.round(ctx.ev.mult * d.flevel); } }   // Blight: poison scaled by combo multiplier each attack
+  };
+  function hooksFor(d) { return (d.feature && FEATURE_HOOKS[d.feature]) || null; }
+
   // floor (optional): Ascend won't let a reroll drop below this pip value
   function rollDie(d, rng, floor) {
     var v = rollOnce(d, rng);
-    if (d.feature === 'echo') { var rolls = [v]; for (var k = 0; k < d.flevel; k++) { var r = rollOnce(d, rng); rolls.push(r); if (pipOf(r) > pipOf(v)) v = r; } d._echoRolls = rolls; }   // record rolls (pure data) so the view can animate the crush; keeps-max logic unchanged
-    if (d.feature === 'ascend' && typeof floor === 'number') {            // literal face value: a reroll never shows a lower number
-      var lo = floor; if (d.flevel >= 2 && lo < 4) lo = 4;                // level 2+: never below 4
-      if (typeof v === 'number' && v < lo) v = lo;                        // (wild 'W' stays as-is)
-    }
+    var H = hooksFor(d);
+    if (H && H.onRoll) v = H.onRoll(d, v, rng, floor);
     d.value = v;
-  }
-  function grantOvercharge(p, d) {
-    if (d.feature === 'overcharge' && d.value === 6 && !d._oc) { d._oc = true; p.rerolls += d.flevel; }
   }
   function startPlayerTurn(state, fresh, rng) {
     var p = state.player;
     if (fresh) {
-      if (p.poison > 0) p.hp = Math.max(1, p.hp - p.poison);   // event poison: drain each turn this fight (cleared on win)
+      if (p.poison > 0) {                                      // poison (enemy- or event-applied): ticks at turn start, halves each turn, can be lethal
+        p.hp -= p.poison;
+        if (p.hp <= 0) { p.hp = 0; loseRun(state); return; }   // route to lose centrally so sim/view (which read state.phase) resolve it — no softlock
+        p.poison = Math.floor(p.poison / 2);                   // decay 50%/turn (floored): front-loaded pressure, terminates cleanly
+      }
       // sealer: a die's feature is off for one turn, then restored; fogger blinds telegraphs for one turn
       p.dice.forEach(function (d) { if (d._sealedFeature != null) { if (d._seal > 0) d._seal--; else { d.feature = d._sealedFeature; d._sealedFeature = null; } } });
       if (p.fogged) { if (p._fog > 0) p._fog--; else p.fogged = false; }
-      p.dice.forEach(function (d) { d._rr = 0; d._oc = false; if (!d.anchor) rollDie(d, rng); });
-      if (p.jam) { var jd = p.dice[rint(p.dice.length)]; jd.value = minFace(jd); p.jam = false; }
+      p.dice.forEach(function (d) { d._rr = 0; if (!d.anchor) rollDie(d, rng); });
+      p._bloodCost = 1;                                        // Bloodroll: the doubling HP price resets each turn
+      if (p.jam) { var jd = p.dice[rint(p.dice.length, rng)]; jd.value = minFace(jd); p.jam = false; }
       var tax = 0; (state.enemies || []).forEach(function (e) { if (e.hp > 0 && sigVal(e, 'rerollTax')) tax += e.sig.rerollTax; });
       p.turnRerolls = Math.max(0, effRerolls(p) - tax);
       p.rerolls = p.turnRerolls;
       if (p.overflowBank > 0) { p.turnRerolls += p.overflowBank; p.rerolls = p.turnRerolls; p.overflowBank = 0; }   // Overflow: banked from last turn
       if (p.rerollLock) { p.turnRerolls = Math.min(p.turnRerolls, 1); p.rerolls = p.turnRerolls; p.rerollLock = false; }   // jailer: capped at one
-      p.dice.forEach(function (d) { if (d.feature === 'momentum') d._mom = (d._mom || 0) + 1; });                    // Momentum: +1 per surviving turn
-      p.dice.forEach(function (d) { grantOvercharge(p, d); });
       if (p.wardPerTurn > 0) p.shield += p.wardPerTurn;
-      p.dice.forEach(function (d) { if (d.feature === 'bulwark') p.shield += d.value * d.flevel; });
+      p.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.onTurnStart) H.onTurnStart(state, p, d); });     // bulwark shield, momentum stack, …
     }
     trackHp(state);   // Gladiator: sample HP at turn start (reflects damage taken on the prior enemy turn)
     state.phase = 'player';
   }
   function rerollDie(state, i, rng) {
     var p = state.player;
-    if (p.rerolls <= 0) { if (!p.bloodroll || p.hp <= 0) return false; p.hp -= 1; }   // Bloodroll: pay HP past the free pool (may spend your last HP → a fatal reroll)
+    if (p.rerolls <= 0) {   // Bloodroll: pay HP past the free pool — the price doubles each paid reroll (1,2,4,8…, reset each turn) and may spend your last HP → a fatal reroll
+      if (!p.bloodroll || p.hp <= 0) return false;
+      var bc = p._bloodCost || 1; p.hp -= bc; p._bloodCost = bc * 2;
+    }
     else p.rerolls--;
     if (state.run) state.run.rerollsUsedThisRun++;   // Samurai: count every reroll actually consumed this run
     var d = p.dice[i], prev = d.value; rollDie(d, rng, prev); d._rr = (d._rr || 0) + 1;
-    if (d.feature === 'magnet') { var cv = commonValue(p.dice); if (cv != null && d.faces.indexOf(cv) > -1 && (rng || defaultRng)() < Math.min(1, 0.5 * d.flevel)) d.value = cv; }
-    if (d.feature === 'momentum') d._mom = 0;   // manual reroll resets the streak
-    if (d.feature === 'bulwarkRoll') p.shield += pipOf(d.value) * d.flevel;                                  // Tide Wall: new pip as shield
-    if (d.feature === 'siphonRoll') p.hp = Math.min(p.maxHp, p.hp + pipOf(d.value) * d.flevel);              // Bloodletter: heal new pip
-    grantOvercharge(p, d); return true;
-  }
-  // bonus damage from features whose value is knowable before Attack (live preview)
-  function featureBonus(state) {
-    var p = state.player, b = 0;
-    p.dice.forEach(function (d) {
-      if (d.feature === 'whetstone') b += (d._rr || 0) * 2 * d.flevel;
-      if (d.feature === 'banker') b += p.rerolls * pipOf(d.value) * d.flevel;
-      if (d.feature === 'momentum') b += (d._mom || 0) * d.flevel;
-    });
-    return b;
+    var H = hooksFor(d);
+    if (H && H.onReroll) H.onReroll(state, p, d, rng);   // magnet bias, momentum reset, Tide Wall/Bloodletter (capped at 5 rerolls/turn in the hooks)
+    return true;
   }
   // central evaluation that folds in the player's run-modifiers (preview + attack agree)
   function effEval(state) {
@@ -437,19 +547,22 @@
       if (d.split) { detect.push(d.value); phantom.push(true); }
     });
     var ev = evaluate(detect, phantom, sumv);
-    var kindle = 0; p.dice.forEach(function (d) { if (d.feature === 'kindle') kindle += (d._rr || 0) * 0.1; });
-    var prism = 0; p.dice.forEach(function (d) { if (d.feature === 'prism' && d.value === 6) prism += 0.2 * d.flevel; });
-    var mult = ev.mult + (p.comboBonus || 0) + Math.min(1, kindle) + Math.min(1.2, prism) - (p.comboPenalty || 0);
+    // feature damage accumulators (see FEATURE_HOOKS.damage): whetstone → sum,
+    // kindle (capped +1) / prism / overcharge / momentum → mult, banker → flat
+    var acc = { sum: 0, kindle: 0, mult: 0, flat: 0 };
+    p.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.damage) H.damage(p, d, acc); });
+    var mult = ev.mult + (p.comboBonus || 0) + Math.min(acc.kindleCap || 1, acc.kindle) + acc.mult - (p.comboPenalty || 0);
     mult = Math.min(5, Math.max(1, +mult.toFixed(2)));                       // global 5× cap
-    var base = Math.round(ev.sum * mult * (p.dmgMult || 1));
+    var sum = ev.sum + acc.sum;                                              // pre-multiplier bonuses land in the sum
+    var base = Math.round(sum * mult * (p.dmgMult || 1));
     if (p.berserker) base = Math.round(base * (1 + (p.maxHp - p.hp) / p.maxHp));   // +1% dmg per 1% maxHP missing
-    var damage = base + featureBonus(state);
-    return { name: ev.name, mult: mult, sum: ev.sum, baseMult: ev.mult, damage: Math.max(0, damage) };
+    var damage = base + acc.flat;
+    return { name: ev.name, mult: mult, sum: sum, baseMult: ev.mult, damage: Math.max(0, damage) };
   }
   function preview(state) { return effEval(state); }
   function cleaveTotal(state, mult) {
     var t = 0;
-    state.player.dice.forEach(function (d) { if (d.feature === 'cleave') { t += Math.round(pipOf(d.value) * mult * d.flevel); } });
+    state.player.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.splash) t += H.splash(d, mult); });
     return t;
   }
 
@@ -457,56 +570,40 @@
   function sigVal(e, name) { return e && e.sig && e.sig[name]; }
   // Lifelink: a boss with the signature takes no damage while any totem add still lives
   function lifelinkImmune(state, e) { return !!sigVal(e, 'lifelink') && state.enemies.some(function (o) { return o._totem && o.hp > 0; }); }
-  // Shockwave/Bubble splash off the primary-target damage; appends tagged hits for the view to animate
+  // Shockwave/Bubble/Ricochet splash off the primary-target damage; each feature's `aoe`
+  // hook appends tagged hits for the view to animate via ctx.hitEnemy
   function aoeHits(state, primary, pierce, rng, hits) {
     var p = state.player;
-    function living() { return state.enemies.filter(function (e) { return e.hp > 0; }); }
-    p.dice.forEach(function (d) {
-      if (d.feature === 'shockwave') {
-        var charges = d.flevel + (p.shockCharge || 0), amt = Math.round(primary * (p.shockPct || 0.10));
-        for (var k = 0; k < charges; k++) {
-          var pool = living(); if (!pool.length) break;
-          var tgt = p.shockFocus ? pool.reduce(function (a, b) { return b.hp < a.hp ? b : a; }) : pool[rint(pool.length, rng)];
-          var idx = state.enemies.indexOf(tgt), dd = lifelinkImmune(state, tgt) ? 0 : Math.max(0, pierce ? amt : amt - tgt.armor);
-          tgt.hp = Math.max(0, tgt.hp - dd); hits.push({ i: idx, amount: dd, aoe: 'shock' });
-        }
+    var ctx = {
+      primary: primary, pierce: pierce, rng: rng, hits: hits,
+      living: function () { return state.enemies.filter(function (e) { return e.hp > 0; }); },
+      hitEnemy: function (tgt, amt, tag) {
+        var idx = state.enemies.indexOf(tgt), dd = lifelinkImmune(state, tgt) ? 0 : Math.max(0, pierce ? amt : amt - tgt.armor);
+        tgt.hp = Math.max(0, tgt.hp - dd); hits.push({ i: idx, amount: dd, aoe: tag });
       }
-      if (d.feature === 'bubble') {
-        var bch = d.flevel + (p.bubbleCharge || 0), bamt = Math.round(primary * (p.bubblePct || 0.03)) + (p.bubbleFlat || 0);
-        for (var c = 0; c < bch; c++) state.enemies.forEach(function (e, i) {
-          if (e.hp > 0) { var dd2 = lifelinkImmune(state, e) ? 0 : Math.max(0, pierce ? bamt : bamt - e.armor); e.hp = Math.max(0, e.hp - dd2); hits.push({ i: i, amount: dd2, aoe: 'bubble' }); }
-        });
-      }
-      if (d.feature === 'ricochet') {
-        // Gambler AoE: every reroll you made this turn fires a bolt at a random living enemy for 10%/level of primary
-        var rbolts = p.dice.reduce(function (s, x) { return s + (x._rr || 0); }, 0), ramt = Math.round(primary * 0.10 * d.flevel);
-        for (var rk = 0; rk < rbolts; rk++) {
-          var rpool = living(); if (!rpool.length) break;
-          var rtgt = rpool[rint(rpool.length, rng)], ri = state.enemies.indexOf(rtgt);
-          var rdd = lifelinkImmune(state, rtgt) ? 0 : Math.max(0, pierce ? ramt : ramt - rtgt.armor);
-          rtgt.hp = Math.max(0, rtgt.hp - rdd); hits.push({ i: ri, amount: rdd, aoe: 'shock' });
-        }
-      }
-    });
+    };
+    p.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.aoe) H.aoe(state, p, d, ctx); });
   }
   function attack(state, rng) {
     var p = state.player, t = state.enemies[state.targetIdx];
     var ev = effEval(state);
     var hits = [];
     var coin = p.doubleOrNothing ? ((rng || defaultRng)() < 0.5 ? 2 : 0) : 1;   // Double or Nothing
-    var pierce = p.dice.some(function (d) { return d.feature === 'piercer'; });   // ignores enemy armor
-    var pierce2 = p.dice.some(function (d) { return d.feature === 'piercer' && d.flevel >= 2; });   // L2: also ignores damage caps
+    var pierce = p.dice.some(function (d) { var H = hooksFor(d); return H && H.pierce; });   // ignores enemy armor
+    var pierce2 = p.dice.some(function (d) { var H = hooksFor(d); return H && H.pierce && d.flevel >= 2; });   // L2: also ignores damage caps
     var cap = pierce2 ? null : sigVal(t, 'damageCap');
     var primary = (cap ? Math.min(ev.damage, cap) : ev.damage) * coin;
     var immune = lifelinkImmune(state, t);
-    var dealt = immune ? 0 : Math.max(0, pierce ? primary : primary - t.armor);
+    var ta = C.ENEMIES[t.key] || {};
+    var dodged = !immune && ta.dodge && (rng || defaultRng)() < ta.dodge;   // Gingerbread: slips the odd hit
+    var dealt = (immune || dodged) ? 0 : Math.max(0, pierce ? primary : primary - t.armor);
     var tHpBefore = t.hp;
-    if (!immune) t.hp = Math.max(0, t.hp - dealt);
-    hits.push({ i: state.targetIdx, amount: dealt, immune: immune });
+    if (!immune && !dodged) t.hp = Math.max(0, t.hp - dealt);
+    hits.push({ i: state.targetIdx, amount: dealt, immune: immune, dodged: dodged });
     var spiked = 0;   // Spikes signature: reflect part of the hit back at the player
     if (sigVal(t, 'spikes') && dealt > 0) { spiked = Math.round(dealt * t.sig.spikes); damagePlayer(state, spiked, {}); }
     // Overkill (Brute): damage past the target's HP carves into the lowest-HP living enemies; levels chain further
-    var okLevel = 0; if (!immune) p.dice.forEach(function (d) { if (d.feature === 'overkill' && d.flevel > okLevel) okLevel = d.flevel; });
+    var okLevel = 0; if (!immune) p.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.overkill && d.flevel > okLevel) okLevel = d.flevel; });
     if (okLevel > 0) {
       var excess = Math.max(0, dealt - tHpBefore), hops = okLevel;
       while (excess > 0 && hops > 0) {
@@ -525,15 +622,10 @@
       if (i !== state.targetIdx && e.hp > 0 && !lifelinkImmune(state, e)) { var c = pierce2 ? null : sigVal(e, 'damageCap'); var s = c ? Math.min(splash, c) : splash; var dd = Math.max(0, pierce ? s : s - e.armor); e.hp = Math.max(0, e.hp - dd); hits.push({ i: i, amount: dd, splash: true }); }
     });
     aoeHits(state, primary, pierce, rng, hits);          // Shockwave / Bubble
-    if (ev.baseMult >= C.COMBOS['Four of a Kind']) p.dice.forEach(function (d) { if (d.feature === 'overflow') p.overflowBank += 1; });   // bank reroll for next turn
-    if (ev.baseMult >= C.COMBOS['Five of a Kind']) p.dice.forEach(function (d) { if (d.feature === 'jackpot') addBeans(state, 5 * d.flevel); });   // Jackpot payout
-    var heal = 0;
-    p.dice.forEach(function (d) {
-      if (d.feature === 'siphon') heal += pipOf(d.value) * d.flevel;                       // flat pip
-      else if (d.feature === 'siphonCombo') heal += Math.round(ev.mult * 2 * d.flevel);    // combo-scaled
-      else if (d.feature === 'siphonDamage') heal += Math.round(dealt * 0.1 * d.flevel);   // lifesteal of primary
-      if (d.feature === 'bulwarkCombo') p.shield += Math.round(ev.mult * 2 * d.flevel);     // Aegis: combo-mult as shield
-    });
+    // attack-resolution feature hooks: siphon heals → aacc.heal, Aegis shield, Overflow bank, Jackpot payout
+    var aacc = { heal: 0 };
+    p.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.onAttack) H.onAttack(state, p, d, { ev: ev, dealt: dealt, t: t }, aacc); });
+    var heal = aacc.heal;
     if (heal > 0) p.hp = Math.min(p.maxHp, p.hp + heal);
     p.comboPenalty = 0;                                  // hexer debuff: one attack only
     p.dealtThisTurn = ev.damage;                         // for boss hardening (Phase 4)
@@ -541,9 +633,23 @@
     state._lastHitDamage = ev.damage;                    // Viking: biggest single-attack damage this turn
     evaluateSkinUnlocks(state);                          // Viking check fires on damage dealt
     state.enemies.forEach(function (e) { if (e.hp <= 0 && !e._paid) { e._paid = true; addBeans(state, Math.round(C.ENEMIES[e.key].gold * (p.goldMult || 1))); } });
+    var deathFx = []; deathEffects(state, deathFx);   // kitchen on-death pops (burst / poison splash)
     var allDead = state.enemies.every(function (e) { return e.hp <= 0; });
     if (!allDead && state.enemies[state.targetIdx].hp <= 0) state.targetIdx = state.enemies.findIndex(function (e) { return e.hp > 0; });
-    return { ev: ev, hits: hits, allDead: allDead, heal: heal, coin: coin, spiked: spiked };
+    return { ev: ev, hits: hits, allDead: allDead, heal: heal, coin: coin, spiked: spiked, dodged: dodged, deathFx: deathFx };
+  }
+  // on-death effects (kitchen): the first time an enemy hits 0 HP, deathBurst pops chip
+  // damage onto the player (floored at 1 HP — a killing blow can never flip a cleared board
+  // into a loss) and deathPoison splashes stacks (which CAN kill later via the normal tick).
+  function deathEffects(state, out) {
+    var p = state.player;
+    state.enemies.forEach(function (e) {
+      if (e.hp > 0 || e._deathFx) return;
+      e._deathFx = true;
+      var a = C.ENEMIES[e.key] || {};
+      if (a.deathBurst) { var amt = Math.round(a.deathBurst * chal(state)); damagePlayer(state, amt, {}); if (p.hp <= 0) p.hp = 1; out.push({ enemy: e, kind: 'burst', value: amt }); }
+      if (a.deathPoison) { p.poison = (p.poison || 0) + a.deathPoison; out.push({ enemy: e, kind: 'deathPoison', value: a.deathPoison }); }
+    });
   }
   function damagePlayer(state, amount, opts) {
     var p = state.player, dmg = Math.round(amount * (p.dmgTakenMult || 1));
@@ -552,29 +658,41 @@
   }
   function thornsDamage(state) {
     var t = 0, p = state.player;
-    p.dice.forEach(function (d) {
-      if (d.feature === 'thorns') t += pipOf(d.value) * d.flevel;
-      else if (d.feature === 'thornsCombo') t += Math.round((p.lastMult || 1) * 2 * d.flevel);   // Bramble: last combo-mult scaled
-    });
+    p.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.reflect) t += H.reflect(p, d); });
+    return t;
+  }
+  // Nettle: poison stacks reflected onto an enemy that hits you (mirrors thornsDamage)
+  function thornsPoisonTotal(state) {
+    var t = 0, p = state.player;
+    p.dice.forEach(function (d) { var H = hooksFor(d); if (H && H.reflectPoison) t += H.reflectPoison(p, d); });
     return t;
   }
   function enemyTurn(state, rng) {
-    var actions = [], p = state.player, thorns = thornsDamage(state);
+    var actions = [], p = state.player, thorns = thornsDamage(state), thornsPois = thornsPoisonTotal(state);
+    // enemy poison (player poison-dice DOT): tick before enemies act, mirroring the player-side poison tick
+    state.enemies.forEach(function (e) {
+      if (e.hp > 0 && e.poison > 0) { e.hp = Math.max(0, e.hp - e.poison); actions.push({ enemy: e, type: 'enemyPoison', value: e.poison }); e.poison = Math.floor(e.poison / 2); }   // decay 50%/turn (floored)
+    });
     state.enemies.forEach(function (e) {
       if (e.hp <= 0 || !e.intent) return; var it = e.intent;
       if (it.type === 'attack') {
-        var h = it.hits || 1, sunder = !!sigVal(e, 'shieldSunder');
+        var h = it.hits || 1, sunder = !!sigVal(e, 'shieldSunder'), ea = C.ENEMIES[e.key] || {};
         for (var k = 0; k < h; k++) damagePlayer(state, it.value, { sunder: sunder });
-        actions.push({ enemy: e, type: 'attack', total: it.value * h });
+        actions.push({ enemy: e, type: 'attack', total: it.value * h, windup: !!it.windup });
+        if (ea.poisonHit) { p.poison = (p.poison || 0) + ea.poisonHit * h; actions.push({ enemy: e, type: 'poison', value: ea.poisonHit * h }); }   // venom on hit (maggot, rusty can, rancid rat)
+        if (ea.goldSteal) { var st = Math.min(p.runCurrency || 0, ea.goldSteal); if (st > 0) { p.runCurrency -= st; actions.push({ enemy: e, type: 'steal', value: st }); } }   // rancid rat filches beans
         if (sigVal(e, 'vampiric')) { var vl = Math.round(it.value * h * e.sig.vampiric); e.hp = Math.min(e.maxHp, e.hp + vl); actions.push({ enemy: e, type: 'heal', value: vl }); }
         if (thorns > 0) { e.hp = Math.max(0, e.hp - thorns); actions.push({ enemy: e, type: 'thorns', value: thorns }); }
+        if (thornsPois > 0) { e.poison = (e.poison || 0) + thornsPois; actions.push({ enemy: e, type: 'poisonApplied', value: thornsPois }); }   // Nettle: attacker gets poisoned
       }
+      else if (it.type === 'windup') { actions.push({ enemy: e, type: 'windup' }); }   // arming — telegraph only, no damage this turn
       else if (it.type === 'heal') { var hurt = state.enemies.find(function (o) { return o !== e && o.hp > 0 && o.hp < o.maxHp; }) || (e.hp < e.maxHp ? e : null); if (hurt) { hurt.hp = Math.min(hurt.maxHp, hurt.hp + it.value); actions.push({ enemy: hurt, type: 'heal', value: it.value }); } }
       else if (it.type === 'armor') { e.armor += it.value; actions.push({ enemy: e, type: 'armor', value: it.value }); }
       else if (it.type === 'armorAlly') { var ally = state.enemies.find(function (o) { return o !== e && o.hp > 0; }) || e; ally.armor += it.value; actions.push({ enemy: ally, type: 'armor', value: it.value }); }
       else if (it.type === 'summon') { var spawn = spawnEnemy(it.key, state); if (spawn) { state.enemies.push(spawn); actions.push({ enemy: spawn, type: 'summon' }); } }
       else if (it.type === 'debuff') {
         if (it.debuff === 'hex') p.comboPenalty = (p.comboPenalty || 0) + it.value;
+        else if (it.debuff === 'poison') p.poison = (p.poison || 0) + it.value;             // poisoner cast: stacks damage-over-time
         else if (it.debuff === 'jam') p.jam = true;
         else if (it.debuff === 'lock') p.rerollLock = true;                                  // jailer: cap next turn's rerolls at 1
         else if (it.debuff === 'rust') { var amt = Math.min(p.armor, it.value || 2); p.armor -= amt; p.rustLost = (p.rustLost || 0) + amt; }   // restored at fight end
@@ -582,6 +700,8 @@
         else if (it.debuff === 'fog') { p.fogged = true; p._fog = 1; }
         actions.push({ enemy: e, type: 'debuff', debuff: it.debuff });
       }
+      // poison aura: a stack every turn just by being alive (mold colony, mold colossus)
+      var epa = C.ENEMIES[e.key]; if (epa && epa.poisonAura) { p.poison = (p.poison || 0) + epa.poisonAura; actions.push({ enemy: e, type: 'poison', value: epa.poisonAura }); }
       // --- boss signatures (passive, fire regardless of intent) ---
       if (e.sig) {
         if (e.sig.hardening && (p.dealtThisTurn || 0) < e.sig.hardening.threshold) { e.armor += e.sig.hardening.gain; actions.push({ enemy: e, type: 'armor', value: e.sig.hardening.gain }); }
@@ -590,23 +710,36 @@
         if (e.sig.regen && e.hp > 0 && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + e.sig.regen); actions.push({ enemy: e, type: 'heal', value: e.sig.regen }); }
       }
     });
-    var counterBank = p.dice.reduce(function (s, d) { return s + (d.feature === 'counter' ? d.flevel : 0); }, 0);   // Counter: bank rerolls when hit
+    // player allies (event-granted pets): each chips true damage into a random living enemy once per turn
+    (p.allies || []).forEach(function (al) {
+      var alive = state.enemies.filter(function (e) { return e.hp > 0; });
+      if (!alive.length) return;
+      var tgt = alive[rint(alive.length, rng)];
+      tgt.hp = Math.max(0, tgt.hp - al.dmgPerTurn);   // pets bypass armor (chip damage)
+      actions.push({ enemy: tgt, type: 'allyHit', value: al.dmgPerTurn, ally: al });
+    });
+    var counterBank = p.dice.reduce(function (s, d) { var H = hooksFor(d); return s + (H && H.counterBank ? H.counterBank(d) : 0); }, 0);   // Counter: bank rerolls when hit
     if (counterBank > 0 && actions.some(function (a) { return a.type === 'attack'; })) p.overflowBank += counterBank;
     state.enemies.forEach(function (e) { if (e.hp <= 0 && !e._paid) { e._paid = true; addBeans(state, Math.round(C.ENEMIES[e.key].gold * (p.goldMult || 1))); } });
+    var dfx = []; deathEffects(state, dfx);   // thorns kills can pop on-death effects too
+    dfx.forEach(function (f) { actions.push({ enemy: f.enemy, type: f.kind, value: f.value }); });
     trackHp(state);   // Gladiator: sample HP after the enemy turn's damage lands
     return { actions: actions, playerDead: state.player.hp <= 0, allDead: state.enemies.every(function (e) { return e.hp <= 0; }) };
   }
   function advanceAfterEnemy(state, rng) {
     state.run.round++; state.run.rounds++;   // run.rounds = total player turns across the whole run (stats)
+    state.enemies.forEach(function (e) {     // armorDecay: melting armor (ice cube) sheds a chunk each round
+      var a = C.ENEMIES[e.key]; if (e.hp > 0 && a && a.armorDecay && e.armor > 0) e.armor = Math.max(0, e.armor - a.armorDecay);
+    });
     state.enemies.forEach(function (e) { if (e.hp > 0) setIntent(state, e); });
     startPlayerTurn(state, true, rng);
   }
 
   /* ---- rewards (effects registry — content references these by name) ----- */
   // honor a player-chosen die (state._targetDie) when present; else random (sim / fallback)
-  function pickDie(state) {
+  function pickDie(state, rng) {
     if (state._targetDie != null && state.player.dice[state._targetDie]) return state.player.dice[state._targetDie];
-    return state.player.dice[rint(state.player.dice.length)];
+    return state.player.dice[rint(state.player.dice.length, rng)];
   }
   function applyFeature(state, type) {
     var dice = state.player.dice;
@@ -621,46 +754,53 @@
     if (same) { same.flevel++; return; }
     dice[0].feature = type; dice[0].flevel = 1;
   }
+  // +1 to a die's n lowest numeric faces (wilds untouched) — shared by Load (2) and Engrave (3)
+  function raiseLowest(d, n) {
+    var idx = d.faces.map(function (f, i) { return i; }).filter(function (i) { return typeof d.faces[i] === 'number'; })
+      .sort(function (a, b) { return d.faces[a] - d.faces[b]; }).slice(0, n);
+    idx.forEach(function (i) { d.faces[i] = Math.min(6, d.faces[i] + 1); });
+  }
   // which UI flow an effect needs: 'face' (preview/diff), 'die' (pick one), 'global' (apply now)
   var FACE_EFFECTS = { forge: 1, load: 1, brand: 1, engrave: 1, uniform: 1, polish: 1, wildcard: 1 };
   var DIE_EFFECTS = { addFeature: 1, anchor: 1, splitter: 1 };
   function effectKind(eff) { return FACE_EFFECTS[eff] ? 'face' : DIE_EFFECTS[eff] ? 'die' : 'global'; }
-  var EFFECTS = {
+  var EFFECTS = {   // signature: (state, u, rng) — rng optional, falls back to Math.random
     addFeature: function (state, u) { applyFeature(state, u.feature); },
-    forge: function (state) { var d = pickDie(state), c = 0, order = shuffle([0, 1, 2, 3, 4, 5]); for (var i = 0; i < order.length && c < 2; i++) { if (d.faces[order[i]] !== 6) { d.faces[order[i]] = 6; c++; } } },
-    load: function (state) { var d = pickDie(state), m = minFace(d); d.faces = d.faces.map(function (f) { return f === m ? Math.min(6, f + 1) : f; }); },
+    forge: function (state, u, rng) { var d = pickDie(state, rng), c = 0, order = shuffle([0, 1, 2, 3, 4, 5], rng); for (var i = 0; i < order.length && c < 2; i++) { if (d.faces[order[i]] !== 6) { d.faces[order[i]] = 6; c++; } } },
+    load: function (state, u, rng) { raiseLowest(pickDie(state, rng), 2); },
     ward: function (state, u) { state.player.wardPerTurn += u.amount; },
     // --- face mods (stackable; pure face-array ops) ---
-    brand: function (state) { var d = pickDie(state); d.faces = d.faces.map(function () { return 1; }); },   // all faces → 1 (every roll = 6 dmg + five-of-a-kind)
-    engrave: function (state) { var d = pickDie(state), idx = d.faces.map(function (f, i) { return i; }).filter(function (i) { return typeof d.faces[i] === 'number'; }).sort(function (a, b) { return d.faces[a] - d.faces[b]; }).slice(0, 2); idx.forEach(function (i) { d.faces[i] = Math.min(6, d.faces[i] + 1); }); },
-    uniform: function (state) { var d = pickDie(state), counts = {}; d.faces.forEach(function (f) { counts[f] = (counts[f] || 0) + 1; }); var common = d.faces[0]; d.faces.forEach(function (f) { if (counts[f] > counts[common] || (counts[f] === counts[common] && f > common)) common = f; }); d.faces[rint(6)] = common; },
-    polish: function (state) { var d = pickDie(state); d.faces = d.faces.map(function (f) { return typeof f === 'number' ? Math.min(6, f + 1) : f; }); },
+    brand: function (state, u, rng) { var d = pickDie(state, rng); d.faces = d.faces.map(function () { return 1; }); },   // all faces → 1 (every roll = 6 dmg + five-of-a-kind)
+    engrave: function (state, u, rng) { raiseLowest(pickDie(state, rng), 3); },
+    uniform: function (state, u, rng) { var d = pickDie(state, rng), counts = {}; d.faces.forEach(function (f) { counts[f] = (counts[f] || 0) + 1; }); var common = d.faces[0]; d.faces.forEach(function (f) { if (counts[f] > counts[common] || (counts[f] === counts[common] && f > common)) common = f; }); d.faces[rint(6, rng)] = common; },
+    polish: function (state, u, rng) { var d = pickDie(state, rng); d.faces = d.faces.map(function (f) { return typeof f === 'number' ? Math.min(6, f + 1) : f; }); },
     // --- tradeoff / one-off swaps (global player modifiers) ---
     glassCannon:  function (state) { var p = state.player; p.dmgMult *= 2;    setMaxHp(p, p.maxHp * 0.3); },
     reckless:     function (state) { var p = state.player; p.dmgMult *= 1.25; p.dmgTakenMult *= 1.2; },
     liveWire:     function (state) { var p = state.player; p.maxRerolls += 2;  setMaxHp(p, p.maxHp * 0.75); },
-    bulwarkStance:function (state) { var p = state.player; p.wardPerTurn += 8;  p.dmgMult *= 0.8; },
+    bulwarkStance:function (state) { var p = state.player; p.wardPerTurn += 16; p.dmgMult *= 0.8; },
     allInRoll:    function (state) { var p = state.player; p.dmgMult *= 1.3;   p.maxRerolls -= 2; },
-    patient:      function (state) { var p = state.player; p.maxRerolls += 1;  p.dmgMult *= 0.85; },
+    patient:      function (state) { var p = state.player; p.maxRerolls += 3;  p.dmgMult *= 0.85; },
     bulkUp:       function (state) { var p = state.player; setMaxHp(p, p.maxHp * 1.3); p.dmgMult *= 0.8; },
     pawnbroker:   function (state) { var p = state.player; p.goldMult *= 1.15; setMaxHp(p, p.maxHp * 0.7); },
     scarTissue:   function (state) { var p = state.player; p.dmgMult *= 1.25; p.healMult *= 0.5; },
+    seasoned:     function (state) { state.player.dmgMult *= 1.15; },   // Spice Rack (event-only): flat damage buff, no downside
     berserkerPact:function (state) { state.player.berserker = true; },
     greed:        function (state) { var p = state.player; p.goldMult *= 1.5;  p.greed += 0.3; },
     sacrificialDie:function (state){ var p = state.player; p.comboBonus += 3;  if (p.dice.length > 1) p.dice.pop(); },
     doubleOrNothing:function(state){ state.player.doubleOrNothing = true; },
     allOrNothing: function (state) { var p = state.player; p.dmgMult *= 5;     setMaxHp(p, 1); },
     // --- AoE effect enhancers (global; buff every matching instance) ---
-    bubbleReinforced: function (state) { state.player.bubbleFlat += 10; },
+    bubbleReinforced: function (state) { state.player.bubbleFlat += 6; },
     bubbleBigger:     function (state) { state.player.bubblePct = 0.05; },
     bubbleDouble:     function (state) { state.player.bubbleCharge += 1; },
-    shockAmplified:   function (state) { state.player.shockPct = 0.15; },
+    shockAmplified:   function (state) { state.player.shockPct = 0.12; },
     shockChain:       function (state) { state.player.shockCharge += 1; },
     shockFocused:     function (state) { state.player.shockFocus = true; },
     // --- premiums (treasure pool) ---
-    wildcard:  function (state) { var d = pickDie(state); d.faces[rint(6)] = 'W'; },
-    anchor:    function (state) { var d = state._targetDie != null ? pickDie(state) : (state.player.dice.find(function (x) { return !x.anchor; }) || pickDie(state)); d.anchor = true; },
-    splitter:  function (state) { var d = state._targetDie != null ? pickDie(state) : (state.player.dice.find(function (x) { return !x.split; }) || pickDie(state)); d.split = true; },
+    wildcard:  function (state, u, rng) { var d = pickDie(state, rng); d.faces[rint(6, rng)] = 'W'; },
+    anchor:    function (state, u, rng) { var d = state._targetDie != null ? pickDie(state, rng) : (state.player.dice.find(function (x) { return !x.anchor; }) || pickDie(state, rng)); d.anchor = true; },
+    splitter:  function (state, u, rng) { var d = state._targetDie != null ? pickDie(state, rng) : (state.player.dice.find(function (x) { return !x.split; }) || pickDie(state, rng)); d.split = true; },
     bloodroll: function (state) { state.player.bloodroll = true; },
     extradie:  function (state) { var p = state.player; if (p.dice.length < 5) p.dice.push(newDie()); }
   };
@@ -669,14 +809,25 @@
     var e = u.effect;
     if (e.indexOf('bubble') === 0) return state.player.dice.some(function (d) { return d.feature === 'bubble'; });
     if (e.indexOf('shock') === 0)  return state.player.dice.some(function (d) { return d.feature === 'shockwave'; });
+    // Venom / Blight are poison enhancers — only offered once you own the base Toxin die
+    if (u.feature === 'poisonRoll' || u.feature === 'poisonCombo') return state.player.dice.some(function (d) { return d.feature === 'poisonDie'; });
     return true;
   }
-  // run-reward eligibility: enhancer gate + per-run "once" cap (idempotent enhancers shouldn't re-offer)
-  function runRewardAvailable(state, u) { return enhancerOk(state, u) && !(u.once && state.run && state.run.taken.indexOf(u.id) > -1); }
+  // run-reward eligibility: enhancer gate + per-run caps — `once` (idempotent enhancers) and
+  // `cap: N` (stackable-but-compounding picks like the face mods; counts every applyReward, so
+  // reward offers, heirloom picks and shop-node buys all share the same budget)
+  function runRewardAvailable(state, u) {
+    if (u.eventOnly) return false;   // granted only by specific events (Spice Rack) — never in normal reward/shop offers
+    if (!enhancerOk(state, u)) return false;
+    if (!state.run) return true;
+    if (u.once && state.run.taken.indexOf(u.id) > -1) return false;
+    if (u.cap && state.run.taken.filter(function (id) { return id === u.id; }).length >= u.cap) return false;
+    return true;
+  }
   // enabled run-reward pool (workshop toggles can switch pieces off). Fall back to the full list if all are off.
   function enabledPool(state, list) { var pool = list.filter(function (u) { return !isDisabled(state.bank, u.id); }); return pool.length ? pool : list.slice(); }
-  function rewardChoices(state) {
-    var picks = shuffle(enabledPool(state, C.UPGRADES).filter(function (u) { return runRewardAvailable(state, u); })).slice(0, 3);
+  function rewardChoices(state, rng) {
+    var picks = shuffle(enabledPool(state, C.UPGRADES).filter(function (u) { return runRewardAvailable(state, u); }), rng).slice(0, 3);
     var sig = state.run && state.run.signature;   // class AoE: force into the FIRST offer only
     if (sig) {
       state.run.signature = null;
@@ -688,26 +839,26 @@
     return picks;
   }
   // the current 3-card offer, memoized per pick so re-renders don't reshuffle it; cleared by applyReward
-  function offerRewards(state) {
-    if (!state.run.offer) { state.run.offer = rewardChoices(state); state.run.offer.forEach(function (u) { state.run.offered[u.id] = (state.run.offered[u.id] || 0) + 1; }); }
+  function offerRewards(state, rng) {
+    if (!state.run.offer) { state.run.offer = rewardChoices(state, rng); state.run.offer.forEach(function (u) { state.run.offered[u.id] = (state.run.offered[u.id] || 0) + 1; }); }
     return state.run.offer;
   }
   // spend the one-per-run token to redraw the offer
-  function rerollOffer(state) { if (!state.run.optionRerolls) return false; state.run.optionRerolls--; state.run.offer = rewardChoices(state); return true; }
+  function rerollOffer(state, rng) { if (!state.run.optionRerolls) return false; state.run.optionRerolls--; state.run.offer = rewardChoices(state, rng); return true; }
   // per-run premium cap check (Wildcard/Anchor/Bloodroll ×1, Splitter ×2, …)
   function premiumAvailable(state, u) { return u.cap == null || ((state.player._premiums && state.player._premiums[u.id]) || 0) < u.cap; }
   // apply one reward; the caller (view) advances the node once pendingRewards hits 0.
   // dieIndex (optional) targets a specific die for face/feature effects; undefined => random.
   function applyReward(state, upgradeId, rng, dieIndex) {
     var u = C.UPGRADES.find(function (x) { return x.id === upgradeId; }); if (!u) return 0;
-    state._targetDie = dieIndex; EFFECTS[u.effect](state, u); state._targetDie = null;
+    state._targetDie = dieIndex; EFFECTS[u.effect](state, u, rng); state._targetDie = null;
     state.player.upgrades++; state.run.offer = null; state.run.taken.push(u.id);   // next pick draws a fresh offer; record the pick
     if (state.run.pendingRewards > 0) state.run.pendingRewards--;
     return state.run.pendingRewards;
   }
-  function applyPremium(state, premiumId, dieIndex) {
+  function applyPremium(state, premiumId, dieIndex, rng) {
     var u = C.PREMIUMS.find(function (x) { return x.id === premiumId; }); if (!u) return;
-    state._targetDie = dieIndex; EFFECTS[u.effect](state, u); state._targetDie = null;   // premiums don't scale enemies
+    state._targetDie = dieIndex; EFFECTS[u.effect](state, u, rng); state._targetDie = null;   // premiums don't scale enemies
     if (!state.player._premiums) state.player._premiums = {};
     state.player._premiums[premiumId] = (state.player._premiums[premiumId] || 0) + 1;
     if (state.run) state.run.premiums.push(premiumId);
@@ -738,11 +889,15 @@
     if (!chargeBeans(state, C.NODECOST.reforgeTransfer)) return false;
     b.feature = a.feature; b.flevel = a.flevel; a.feature = null; a.flevel = 0; return true;
   }
-  // reforge: stamp a chosen face mod onto a die
-  function reforgeFaceMod(state, dieIndex, modId) {
-    if (modId === 'wildcard' || !FACE_EFFECTS[modId] || !EFFECTS[modId]) return false;
+  // reforge: stamp a chosen face mod onto a die — max 2 stamps per visit; wildcard and brand
+  // are premium-gated and can't be bought here
+  function reforgeFaceMod(state, dieIndex, modId, rng) {
+    if (modId === 'wildcard' || modId === 'brand' || !FACE_EFFECTS[modId] || !EFFECTS[modId]) return false;
+    if (state.reforge && state.reforge.mods >= 2) return false;
     if (!chargeBeans(state, C.NODECOST.reforgeFaceMod)) return false;
-    state._targetDie = dieIndex; EFFECTS[modId](state); state._targetDie = null; return true;
+    state._targetDie = dieIndex; EFFECTS[modId](state, null, rng); state._targetDie = null;
+    if (state.reforge) state.reforge.mods++;
+    return true;
   }
   /* ---- event mechanics shared by riskBite / raid / randomTable / timedBuff / scoutReveal ---- */
   // queue a debuff that lands at the START of the next fight (events fire on the map, not mid-combat)
@@ -792,12 +947,12 @@
     }
   }
   // pre-roll the final boss's signature id set once, so a scouted preview matches the eventual fight
-  function rollBossPreview(state) {
+  function rollBossPreview(state, rng) {
     if (state.run.bossPreview) return state.run.bossPreview;
     var bnode = state.map.cols[C.MAP.boss][0], key = bnode && bnode.enemies && bnode.enemies[0];
     if (!key) return null;
-    var count = 2 + rint(2), pool = Object.keys(C.SIGNATURES).filter(function (k) { return k !== 'phaseFlip'; });
-    var ids = shuffle(pool).slice(0, count); ids.push('phaseFlip');                       // final boss: 2-3 sigs + phase flip
+    var count = 2 + rint(2, rng), pool = Object.keys(C.SIGNATURES).filter(function (k) { return k !== 'phaseFlip'; });
+    var ids = shuffle(pool, rng).slice(0, count); ids.push('phaseFlip');                  // final boss: 2-3 sigs + phase flip
     state.run.bossPreview = { key: key, count: count, phase: true, ids: ids };
     return state.run.bossPreview;
   }
@@ -815,6 +970,14 @@
     if (b.debuff) { queueDebuff(p, b.debuff); parts.push(debuffLabel(b.debuff)); }
     if (b.enemyBuff) { queueDebuff(p, { kind: 'enemyBuff', pct: b.enemyBuff.pct }); parts.push('enemies enraged next fight'); }
     if (b.buff) { grantTimedBuff(p, b.buff); parts.push(buffLabel(b.buff)); }
+    // event-fight onWin extensions: cosmetic skin, N sequential upgrade picks, a persistent ally
+    if (b.unlockSkin) {
+      var bk = state.bank; if (bk && !bk.skins) bk.skins = {};
+      if (bk && bk.skins[b.unlockSkin]) { var scon = (C.SKIN_UNLOCKS && C.SKIN_UNLOCKS.consolationBeans) || 0; addBeans(state, scon); parts.push(scon + ' beans (skin already owned)'); }
+      else if (bk) { bk.skins[b.unlockSkin] = true; (state.skinUnlocks = state.skinUnlocks || []).push(b.unlockSkin); parts.push('a new companion'); }
+    }
+    if (b.grantAlly) { (p.allies = p.allies || []).push(cloneAlly(b.grantAlly)); parts.push((b.grantAlly.name || 'an ally') + ' joins you'); }
+    if (b.pendingRewards) { state.run.pendingRewards = (state.run.pendingRewards || 0) + b.pendingRewards; parts.push(b.pendingRewards + ' upgrade pick' + (b.pendingRewards > 1 ? 's' : '')); }
     return parts.length ? parts.join(', ') + '.' : 'Nothing happens.';
   }
 
@@ -826,8 +989,8 @@
     if (ch.outcome === 'hpForFaceMod') {
       setMaxHp(p, p.maxHp * (1 - (ch.hpPct || 0.15)));
       var mods = ['forge', 'load', 'brand', 'engrave', 'uniform', 'polish'], m = mods[rint(mods.length, rng)];
-      state._targetDie = null; EFFECTS[m](state);
-      var mu = C.UPGRADES.find(function (u) { return u.id === m; });
+      state._targetDie = null; EFFECTS[m](state, null, rng);
+      var mu = C.UPGRADES.concat(C.PREMIUMS).find(function (u) { return u.id === m; });   // brand lives in PREMIUMS now
       msg = 'You grind a die — ' + (mu ? mu.name : m) + '.'; state.phase = 'map';
     } else if (ch.outcome === 'beanGamble') {
       if ((rng || defaultRng)() < 0.5) { addBeans(state, p.runCurrency); msg = 'The pot bubbles over — your beans double!'; }   // gained delta = old balance
@@ -878,12 +1041,33 @@
       if (ev.id === 'beetle' && state.bank) { state.bank.beetleKindnessCount = (state.bank.beetleKindnessCount || 0) + 1; evaluateSkinUnlocks(state); }   // Monk trigger (payout/flavor unchanged)
       // TODO: optional Phase-7 callback — instead of paying now, set state.run.beetleFavor and gift on a later node
     } else if (ch.outcome === 'scoutReveal') {
-      state.run.scoutCol = (state.run.pos ? state.run.pos.col : 0) + 5; rollBossPreview(state);
+      state.run.scoutCol = (state.run.pos ? state.run.pos.col : 0) + 5; rollBossPreview(state, rng);
       queueDebuff(p, { kind: 'accuracy', pct: ch.pct || 0.2 });
       msg = 'The light shows the road ahead — but your aim swims (−' + Math.round((ch.pct || 0.2) * 100) + '% damage next fight).'; state.phase = 'map';
     } else if (ch.outcome === 'randomTable') {
       var row = weightedRow(ch.table || [], rng);
       msg = 'The fortune reads: ' + resolveOutcomeBlock(state, row, rng); state.phase = 'map';
+    } else if (ch.outcome === 'fightThenReward') {
+      startEventFight(state, [ch.enemy], ch.onWin, rng);   // sets state.phase='player'; view routes into combat, winFight resolves onWin
+      msg = '';   // no event-result panel — the fight begins immediately
+    } else if (ch.outcome === 'grantSpecificUpgrade') {
+      applyReward(state, ch.id, rng);   // apply a NAMED upgrade's effect directly, bypassing the random 3-card offer
+      var gu = C.UPGRADES.find(function (u) { return u.id === ch.id; });
+      msg = (gu ? gu.name : 'A boon') + ' takes hold.'; state.phase = 'map';
+    } else if (ch.outcome === 'brandChosen') {
+      state._eventUI = 'brand'; msg = '';   // view launches the die + pip picker, then calls Engine.brandDie
+    } else if (ch.outcome === 'disposalReward') {
+      state._eventUI = 'poison'; msg = '';   // view picks a die → Engine.giveFeature('poisonDie')
+    } else if (ch.outcome === 'compostReroll') {
+      state._eventUI = 'compost'; msg = '';   // view picks a die → strip feature → offer 3 addFeature (decline-capable)
+    } else if (ch.outcome === 'vendingRoll') {
+      var vc = ch.cost || 100; if (p.runCurrency < vc) { state.phase = 'event'; return null; }
+      p.runCurrency -= vc; state.run.vendingCost = vc; state.run.vendingOffer = rewardChoices(state, rng).slice(0, 1);
+      state._eventUI = 'vending'; msg = '';
+    } else if (ch.outcome === 'hireAlly') {
+      var ac = ch.cost || 20; if (p.runCurrency < ac) { state.phase = 'event'; return null; }
+      p.runCurrency -= ac; (p.allies = p.allies || []).push(cloneAlly(ch.ally));
+      msg = 'A new hand joins your side.'; state.phase = 'map';
     } else if (ch.outcome === 'unlockSkin') {
       var b = state.bank; if (b && !b.skins) b.skins = {};
       if (b && b.skins[ch.skin]) {   // already owned → small consolation so the node is never dead
@@ -955,6 +1139,13 @@
     p.dice.forEach(function (d) { if (d._sealedFeature != null) { d.feature = d._sealedFeature; d._sealedFeature = null; d._seal = 0; } });
     p.fogged = false; p._fog = 0; p.rerollLock = false;
     p.hp = Math.min(p.maxHp, p.hp + Math.ceil(p.maxHp * C.BALANCE.healBetweenFights * (p.healMult || 1)));
+    // event-fight (fightThenReward): resolve the onWin block, then route to reward (if it granted picks) or back to the map
+    if (state.run.eventFight) {
+      state.run.eventFight = false; var ow = state.run.onWin; state.run.onWin = null;
+      if (ow) resolveOutcomeBlock(state, ow, null);   // onWin fields (unlockSkin/pendingRewards/grantAlly) are deterministic — rng unused
+      state.phase = state.run.pendingRewards > 0 ? 'reward' : 'map';
+      return state.phase;
+    }
     if (node.type === 'boss') {
       state.phase = 'win'; state.bank.currency += p.runCurrency + C.RUN.winBonus;
       state.bank.lifetimeBeans = (state.bank.lifetimeBeans || 0) + C.RUN.winBonus;   // win bonus counts toward lifetime earned (Cowboy)
@@ -991,12 +1182,14 @@
     restHeal: restHeal, leaveRun: leaveRun, applyPremium: applyPremium,
     rewardChoices: rewardChoices, offerRewards: offerRewards, rerollOffer: rerollOffer,
     applyReward: applyReward, effRerolls: effRerolls,
-    effectKind: effectKind, setIntent: setIntent, EFFECTS: EFFECTS, configureBoss: configureBoss,
+    effectKind: effectKind, setIntent: setIntent, EFFECTS: EFFECTS, FEATURE_HOOKS: FEATURE_HOOKS, configureBoss: configureBoss,
     toggleDisabled: toggleDisabled, isDisabled: isDisabled, applyClass: applyClass, cycleChallenge: cycleChallenge,
     loadClass: loadClass, saveClass: saveClass, resetClass: resetClass, hasClassSave: hasClassSave, setAllDisabled: setAllDisabled,
     runShopCost: runShopCost, buyRunUpgrade: buyRunUpgrade,
     reforgeReroll: reforgeReroll, reforgeTransfer: reforgeTransfer, reforgeFaceMod: reforgeFaceMod,
-    applyEvent: applyEvent, evaluateSkinUnlocks: evaluateSkinUnlocks, addBeans: addBeans
+    applyEvent: applyEvent, evaluateSkinUnlocks: evaluateSkinUnlocks, addBeans: addBeans,
+    startEventFight: startEventFight, brandDie: brandDie, giveFeature: giveFeature,
+    stripFeature: stripFeature, featureOffer: featureOffer, vendingReroll: vendingReroll
   };
   if (typeof module !== 'undefined') module.exports = global.Engine;
 })(typeof window !== 'undefined' ? window : globalThis);

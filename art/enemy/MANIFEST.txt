@@ -50,3 +50,57 @@ heavystapler.png       — Industrial Stapler (role Boss, BOSS). Enemy sprite. R
 scissors.png           — Scissors (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback ✂️.
 sharpener.png          — Pencil Sharpener (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback ✏️.
 swissknife.png         — Swiss Army Knife (role Boss, BOSS). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔪.
+
+# --- Kitchen biome (CONTENT.ENEMIES kitchen roster; data-in, art pending) ---
+sugarant.png           — Sugar Ant (role Grunt). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🐜.
+antline.png            — Ant Line (role Summoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🐜.
+fruitfly.png           — Fruit Fly (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🪰.
+gnatcloud.png          — Gnat Cloud (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🦟.
+pantrymoth.png         — Pantry Moth (role Summoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🦋.
+weevil.png             — Weevil (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🐛.
+silverfish.png         — Silverfish (role Jammer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🐟.
+cockroach.png          — Cockroach (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🪳.
+maggot.png             — Maggot (role Grunt, poison-on-hit). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🐛.
+housefly.png           — Housefly (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🪰.
+toothpick.png          — Toothpick Soldier (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍢.
+chopsticks.png         — Chopsticks (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥢.
+crumbpile.png          — Crumb Pile (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍞.
+popcorn.png            — Popcorn Kernel (role Berserker). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍿.
+skewer.png             — Skewer (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍢.
+moldybread.png         — Moldy Bread (role Poisoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍞.
+moldcolony.png         — Mold Colony (role Mender, poison-aura). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🟢.
+spoiledmilk.png        — Spoiled Milk (role Poisoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥛.
+rottenegg.png          — Rotten Egg (role Hexer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥚.
+moldycheese.png        — Moldy Cheese (role Mender, poison-on-hit). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧀.
+rustycan.png           — Rusty Can (role Turtle, poison-on-hit). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥫.
+bugspray.png           — Bug Spray Can (role Poisoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧴.
+mustardblob.png        — Mustard Blob (role Grunt, poison-on-hit). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🟡.
+compostclump.png       — Compost Clump (role Summoner, poison-aura). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍂.
+ghostpepper.png        — Ghost Pepper (role Berserker, poison-on-hit). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🌶️.
+chilipepper.png        — Chili Pepper (role Berserker). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🌶️.
+onion.png              — Onion (role Hexer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧅.
+garlic.png             — Garlic Clove (role Warden). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧄.
+steelwool.png          — Steel Wool (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧽.
+rollingpin.png         — Rolling Pin (role Brute). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥖.
+icecube.png            — Ice Cube (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧊.
+gummybear.png          — Gummy Bear (role Turtle). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🐻.
+honeyblob.png          — Honey Blob (role Jammer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍯.
+microwave.png          — Microwave (role Standard-Bearer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📟.
+boxgrater.png          — Box Grater (role Swarm). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧀.
+sponge.png             — Sponge (role Mender). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧽.
+ladle.png              — Ladle (role Mender). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥄.
+spatula.png            — Spatula (role Warden). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍳.
+butter.png             — Butter Stick (role Mender). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧈.
+sourlemon.png          — Sour Lemon (role Hexer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍋.
+fridgemagnet.png       — Fridge Magnet (role Jammer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🧲.
+flypaper.png           — Fly Paper (role Jammer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 📜.
+blender.png            — Blender (role Summoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🌀.
+toaster.png            — Toaster (role Berserker). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍞.
+canopener.png          — Can Opener (role Jammer). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🔧.
+skillet.png            — Cast-Iron Skillet (role Brute). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍳.
+gingerbread.png        — The Gingerbread Man (role Boss, MINIBOSS L5, dodgy). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍪.
+rancidrat.png          — Rancid Rat (role Boss, MINIBOSS L10, poison + gold steal). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🐀.
+moldcolossus.png       — Mold Colossus (role Boss, MINIBOSS L15, poison wall). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🟩.
+mousetrap.png          — The Mousetrap (role Boss, BOSS L20, wind-up SNAP). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🪤.
+screambread.png        — The Scary Bread Man (event miniboss, fightThenReward, buffed Gingerbread). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🍞.
+pitcher.png            — The Pitcher (event miniboss, fightThenReward, ice-cube summoner). Enemy sprite. Rendered in renderEnemies + the enemy stat panel. Fallback 🥤.

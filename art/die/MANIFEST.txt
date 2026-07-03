@@ -8,7 +8,6 @@ cleave.png             — Cleave die feature. Die-body skin when a die carries 
 bulwark.png            — Bulwark die feature. Die-body skin when a die carries Bulwark; rendered behind the pips in the dice row. Fallback: plain die + 🛡 badge.
 bulwarkRoll.png        — Tide Wall die feature. Die-body skin when a die carries Tide Wall; rendered behind the pips in the dice row. Fallback: plain die + 🌀 badge.
 bulwarkCombo.png       — Aegis die feature. Die-body skin when a die carries Aegis; rendered behind the pips in the dice row. Fallback: plain die + 🔰 badge.
-freereroll.png         — Free Reroll die feature. Die-body skin when a die carries Free Reroll; rendered behind the pips in the dice row. Fallback: plain die + 🔄 badge.
 echo.png               — Echo die feature. Die-body skin when a die carries Echo; rendered behind the pips in the dice row. Fallback: plain die + 🔮 badge.
 overcharge.png         — Overcharge die feature. Die-body skin when a die carries Overcharge; rendered behind the pips in the dice row. Fallback: plain die + ⚡ badge.
 banker.png             — Banker die feature. Die-body skin when a die carries Banker; rendered behind the pips in the dice row. Fallback: plain die + 🏦 badge.
@@ -32,3 +31,7 @@ counter.png            — Counter die feature. Die-body skin when a die carries
 jackpot.png            — Jackpot die feature. Die-body skin when a die carries Jackpot; rendered behind the pips in the dice row. Fallback: plain die + 🎰 badge.
 overkill.png           — Overkill die feature. Die-body skin when a die carries Overkill; rendered behind the pips in the dice row. Fallback: plain die + 🪦 badge.
 ricochet.png           — Ricochet die feature. Die-body skin when a die carries Ricochet; rendered behind the pips in the dice row. Fallback: plain die + 🎯 badge.
+poisonDie.png          — Toxin die feature. Die-body skin when a die carries Toxin; rendered behind the pips in the dice row. Fallback: plain die + 🧪 badge.
+poisonRoll.png         — Venom die feature. Die-body skin when a die carries Venom; rendered behind the pips in the dice row. Fallback: plain die + 🐍 badge.
+poisonCombo.png        — Blight die feature. Die-body skin when a die carries Blight; rendered behind the pips in the dice row. Fallback: plain die + ☠️ badge.
+thornsPoison.png       — Nettle die feature. Die-body skin when a die carries Nettle; rendered behind the pips in the dice row. Fallback: plain die + 🌿 badge.

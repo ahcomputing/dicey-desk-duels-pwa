@@ -69,6 +69,16 @@
     { id: 'dolphin',     emoji: '🐬', name: 'Dolphin',       unlock: 'shop', cost: 8000 },
     { id: 'jester',      emoji: '🃏', name: 'Jester',        unlock: 'shop', cost: 9000 },
     { id: 'dapper',      emoji: '🎩', name: 'Dapper',        unlock: 'shop', cost: 10000 },
+    { id: 'wizard',      emoji: '🪄', name: 'Wizard',        unlock: 'shop', cost: 11000 },
+    { id: 'falconer',    emoji: '🦅', name: 'Falconer',      unlock: 'shop', cost: 12000 },
+    { id: 'alchemist',   emoji: '⚗️', name: 'Alchemist',     unlock: 'shop', cost: 13000 },
+    { id: 'diver',       emoji: '🤿', name: 'Diver',         unlock: 'shop', cost: 14000 },
+    { id: 'beetleknight',emoji: '🪲', name: 'Beetle Knight', unlock: 'shop', cost: 15000 },
+    { id: 'firefly',     emoji: '✨', name: 'Firefly',       unlock: 'shop', cost: 16000 },
+    { id: 'beekeeper',   emoji: '🐝', name: 'Beekeeper',     unlock: 'shop', cost: 17000 },
+    { id: 'luchador',    emoji: '🤼', name: 'Luchador',      unlock: 'shop', cost: 18000 },
+    { id: 'ringmaster',  emoji: '🎪', name: 'Ringmaster',    unlock: 'shop', cost: 19000 },
+    { id: 'antsoldier',  emoji: '🐜', name: 'Ant Soldier',   unlock: 'shop', cost: 20000 },
     // condition / event unlocks — Engine.evaluateSkinUnlocks (or an unlockSkin event) flips ownership;
     // `hint` is the locked-tile label shown in the picker (logic & thresholds live in engine/content).
     { id: 'robot',       emoji: '🤖', name: 'Robot',         unlock: 'condition', hint: 'Befriend the Windup Toy' },
@@ -81,7 +91,9 @@
     { id: 'viking',      emoji: '🪖', name: 'Viking',        unlock: 'condition', hint: 'Land one colossal hit' },
     { id: 'detective',   emoji: '🕵️', name: 'Detective',     unlock: 'condition', hint: 'Read how the game works' },
     { id: 'gremlin',     emoji: '👺', name: 'Gremlin',       unlock: 'condition', hint: 'Clear the miniboss at 0 HP and press on' },
-    { id: 'headless',    emoji: '🎃', name: 'Headless',      unlock: 'condition', hint: 'Die to your own Bloodroll reroll' }
+    { id: 'headless',    emoji: '🎃', name: 'Headless',      unlock: 'condition', hint: 'Die to your own Bloodroll reroll' },
+    { id: 'loaf',        emoji: '🍞', name: 'Bread Man',     unlock: 'condition', hint: 'Best the Scary Bread Man' },
+    { id: 'squirt',      emoji: '🥤', name: 'Pitcher',       unlock: 'condition', hint: 'Best the Pitcher' }
   ];
   // ---- persistence: the bank (permanent progression) survives reloads via localStorage ----
   var SAVE_KEY = 'underfoot.bank.v1';
@@ -179,10 +191,13 @@
     return '<button class="wschal" id="wsChal"><span class="chmult">🔥 Challenge ×' + tier.mult + '</span>' +
       '<span class="chdesc">' + tier.desc + ' (tap to change)</span></button>';
   }
+  var homeBiome = 'desk';   // which level the home screen (and Play) targets; toggled by the biome arrow
+  function applyBiomeTheme(biome) { document.body.classList.toggle('biome-kitchen', biome === 'kitchen'); }
   function showWorkshop() {
     saveBank();   // backstop: persist whatever's banked whenever we land here
     var ov = $('overlay'); ov.style.display = 'flex';
-    var b = state.bank;
+    var b = state.bank, kitchen = homeBiome === 'kitchen';
+    applyBiomeTheme(homeBiome);
     ov.innerHTML =
       '<div class="wshome">' +
         '<div class="wstopbar">' +
@@ -190,23 +205,49 @@
           '<div class="wstitle">WORKSHOP<div class="wsgold">🫘 ' + b.currency + ' banked</div></div>' +
           '<button class="wscorner" id="wsUpg"><span class="wsic">⚙️</span><span>Upgrades</span></button>' +
         '</div>' +
-        '<button class="wschar" id="wschar">' + artImg('skin', currentSkin().id, currentSkin().emoji, { cls: 'wsart' }) + '<div class="wssub">Tap to change skin · Ready for the desk.</div></button>' +
+        '<button class="wschar" id="wschar">' + artImg('skin', currentSkin().id, currentSkin().emoji, { cls: 'wsart' }) + '<div class="wssub">Tap to change skin · Ready for the ' + (kitchen ? 'kitchen' : 'desk') + '.</div></button>' +
         challengeBtn(b) +
-        '<img class="wsbanner" src="art/banner/kitchen_coming_soon.svg" alt="Kitchen biome — coming soon" draggable="false">' +
+        '<div class="biomepick">' +
+          '<button class="biomearrow ' + (kitchen ? 'left' : 'right') + '" id="biomeSwap" aria-label="Switch level">' + (kitchen ? '◀' : '▶') + '</button>' +
+          '<div class="biomelabel">' + (kitchen ? '🍳 Kitchen' : '🖊️ Desk') + '</div>' +
+          '<div class="biomehint">' + (kitchen ? 'tap to go back to the Desk' : 'tap to enter the Kitchen') + '</div>' +
+        '</div>' +
         '<button class="wsgo" id="beginrun">One more run?</button>' +
-        '<div class="wslinks"><button class="wslink" id="wsStats">📊 Stats</button><button class="wsreset" id="wsReset">Reset progress</button></div>' +
+        '<button class="wslink wssettings" id="wsSettings">⚙️ Settings</button>' +
       '</div>';
     $('wsShop').onclick = showShop;
     $('wsUpg').onclick = showUpgrades;
     $('wschar').onclick = showSkins;
     $('wsChal').onclick = function () { E.cycleChallenge(state.bank); saveBank(); showWorkshop(); };
-    $('wsStats').onclick = showStats;
-    $('beginrun').onclick = function () { E.startRun(state, rng); busy = false; M.setBiome('desk'); M.start(); enterPhase(); };
-    $('wsReset').onclick = function () {
-      if (!confirm('Wipe all permanent progression and start fresh?')) return;
-      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    $('wsSettings').onclick = showSettings;
+    $('biomeSwap').onclick = function () { homeBiome = kitchen ? 'desk' : 'kitchen'; M.setBiome(homeBiome); showWorkshop(); };
+    $('beginrun').onclick = function () { E.startRun(state, rng, homeBiome); busy = false; applyBiomeTheme(homeBiome); M.setBiome(homeBiome); M.start(); enterPhase(); };
+  }
+  // settings: sound (SFX + music mute/volume), and the Stats + Reset controls moved off the home screen
+  function showSettings() {
+    var ov = $('overlay'); ov.style.display = 'flex';
+    function mi(m) { return m ? '🔇' : '🔊'; }
+    ov.innerHTML =
+      '<h2>⚙️ Settings</h2>' +
+      '<div class="reveal">Sound</div>' +
+      '<div class="setbox">' +
+        '<div class="aprow"><button class="amute" id="setSfxMute">' + mi(S.isMuted()) + '</button><span class="alabel">Effects</span><input type="range" id="setSfxVol" min="0" max="100" value="' + Math.round(S.getVolume() * 100) + '"></div>' +
+        '<div class="aprow"><button class="amute" id="setMusMute">' + mi(M.isMuted()) + '</button><span class="alabel">Music</span><input type="range" id="setMusVol" min="0" max="100" value="' + Math.round(M.getVolume() * 100) + '"></div>' +
+      '</div>' +
+      '<div class="reveal">Progress</div>' +
+      '<div class="rowbtns"><button class="bigbtn" id="setStats">📊 Stats</button><button class="bigbtn ghost" id="setReset">Reset progress</button></div>' +
+      '<button class="bigbtn ghost" id="setBack">Back</button>';
+    $('setSfxMute').onclick = function () { S.toggleMuted(); this.textContent = mi(S.isMuted()); S.play('button'); };
+    $('setMusMute').onclick = function () { M.toggleMuted(); this.textContent = mi(M.isMuted()); };
+    $('setSfxVol').oninput = function () { S.setVolume(this.value / 100); };
+    $('setMusVol').oninput = function () { M.setVolume(this.value / 100); };
+    $('setStats').onclick = showStats;
+    $('setReset').onclick = function () {
+      if (!confirm('Wipe all permanent progression and stats, and start fresh?')) return;
+      try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(STATS_KEY); } catch (e) {}
       state.bank = E.newBank(); showWorkshop();
     };
+    $('setBack').onclick = showWorkshop;
   }
   // playtest stats screen + JSON export (drop the file in the repo for offline analysis)
   function showStats() {
@@ -230,7 +271,7 @@
       '<div class="reveal">Death nodes</div><div class="statbox">' + deaths + '</div>' +
       '<div class="rowbtns"><button class="bigbtn" id="stExport">⬇️ Export data</button><button class="bigbtn ghost" id="stBack">Back</button></div>';
     $('stExport').onclick = exportStats;
-    $('stBack').onclick = showWorkshop;
+    $('stBack').onclick = showSettings;
   }
   function exportStats() {
     try {
@@ -251,7 +292,7 @@
         ['hp', '❤️ Max HP', maxHp + ' HP · +5 each'],
         ['armor', '🛡️ Armor', b.armorBought + ' · blocks that much per hit, forever'],
         ['reroll', '🔄 Rerolls', (C.BALANCE.baseRerolls + b.rerollBought) + '/turn · +1 each'],
-        ['heal', '🌿 Natural Healing', healPct + '% healed between fights · +5% each'],
+        ['heal', '🌿 Natural Healing', healPct + '% healed between fights · +' + Math.round(C.SHOP.heal.inc * 100) + '% each'],
         ['beans', '👝 Deep Pockets', '+' + (b.beansBought * C.SHOP.beans.inc) + ' starting beans · +15 each'],
         ['luck', '🍀 Lucky Find', '+' + Math.round(b.luckBought * C.SHOP.luck.inc * 100) + '% beans from fights · +5% each'],
         ['heirloom', '🏺 Heirloom', b.heirloomBought + '/' + C.SHOP.heirloom.max + ' free reward picks at run start · +1 each']
@@ -276,7 +317,7 @@
         '<p>Permanent upgrades — they persist between runs. <b>Dice live here</b>, so in-run rewards stay free for build pieces.</p>' +
         '<div class="cards">' + rows + '</div>' +
         '<div class="reveal">Cosmetics</div><div class="cards">' + skinRows + '</div>' +
-        '<button class="bigbtn ghost" id="shopback">Back</button>';
+        '<button class="bigbtn ghost stickyback" id="shopback">Back</button>';
       ov.querySelectorAll('[data-buy]').forEach(function (btn) { btn.onclick = function () { E.buy(state, btn.dataset.buy); S.play('purchase'); saveBank(); render(); }; });
       ov.querySelectorAll('[data-buyskin]').forEach(function (btn) { btn.onclick = function () {
         var s = SKINS.find(function (x) { return x.id === btn.dataset.buyskin; });
@@ -327,7 +368,7 @@
         '<p>Turn build pieces on or off. Anything switched <b>OFF</b> won’t be offered as a run reward or treasure premium — so you only see the ones you actually want.</p>' +
         '<div class="reveal">Run rewards</div><div class="cards">' + C.UPGRADES.map(function (u) { return lineFor(u, false); }).join('') + '</div>' +
         '<div class="reveal">Treasure premiums</div><div class="cards">' + C.PREMIUMS.map(function (u) { return lineFor(u, true); }).join('') + '</div>' +
-        '<button class="bigbtn ghost" id="upgback">Back</button>';
+        '<button class="bigbtn ghost stickyback" id="upgback">Back</button>';
       // class buttons just SELECT (reveal Load/Save/Reset) — they no longer auto-apply
       ov.querySelectorAll('[data-cls]').forEach(function (btn) { btn.onclick = function () { selected = (selected === btn.dataset.cls) ? null : btn.dataset.cls; render(); }; });
       ov.querySelectorAll('[data-clsact]').forEach(function (btn) { btn.onclick = function () {
@@ -358,7 +399,7 @@
     }).join('');
     ov.innerHTML = '<h2 class="win">Skins</h2>' +
       '<p>Pick your look on the desk — purely cosmetic. Unlock more by winning Challenge runs or buying in the Shop.</p>' +
-      '<div class="skingrid">' + tiles + '</div><button class="bigbtn ghost" id="skback">Back</button>';
+      '<div class="skingrid">' + tiles + '</div><button class="bigbtn ghost stickyback" id="skback">Back</button>';
     ov.querySelectorAll('[data-skin]').forEach(function (b) {
       b.onclick = function () { state.bank.skin = b.dataset.skin; saveBank(); showSkins(); };
     });
@@ -408,6 +449,18 @@
     $('phptext').textContent = p.hp + ' / ' + p.maxHp;
     var sp = $('shieldpip'); if (p.shield > 0) { sp.style.display = 'flex'; $('shieldval').textContent = p.shield; } else sp.style.display = 'none';
     var ap = $('armorpip'); if (p.armor > 0) { ap.style.display = 'flex'; $('armorval').textContent = p.armor; } else ap.style.display = 'none';
+    var pp = $('poisonpip'); if (p.poison > 0) { pp.style.display = 'flex'; $('poisonval').textContent = p.poison; } else pp.style.display = 'none';
+    // event-granted pets flank the hero (allies[0] left, allies[1] right); persist across the run
+    var allies = p.allies || [];
+    renderAllySlot('ally0', allies[0]);
+    renderAllySlot('ally1', allies[1]);
+  }
+  function renderAllySlot(id, al) {
+    var el = $(id); if (!el) return;
+    if (!al) { el.innerHTML = ''; el.classList.remove('on'); return; }
+    el.classList.add('on');
+    var face = al.art ? artImg('enemy', al.art, al.icon || '🤝', { cls: 'allyart' }) : (al.icon || '🤝');   // recruited foes wear their enemy sprite (emoji fallback)
+    el.innerHTML = '<div class="allyicon" title="' + (al.name || 'Ally') + ' — ' + al.dmgPerTurn + ' dmg/turn to a random enemy">' + face + '</div><div class="allydmg">' + al.dmgPerTurn + '</div>';
   }
   function renderEnemies() {
     var wrap = $('enemies'); wrap.innerHTML = '';
@@ -429,6 +482,7 @@
         else if (it.type === 'armor') ih = '<div class="intent arm">🛡️ ' + it.value + '</div>';
         else if (it.type === 'armorAlly') ih = '<div class="intent arm">🛡️→ ' + it.value + '</div>';
         else if (it.type === 'summon') ih = '<div class="intent heal">✦ summon</div>';
+        else if (it.type === 'windup') ih = '<div class="intent atk">🪤 arming</div>';
         else if (it.type === 'debuff') ih = '<div class="intent hex">' + (INTENT_DEBUFF[it.debuff] || '✸') + '</div>';
       }
       var sigs = '';
@@ -436,7 +490,8 @@
       el.innerHTML = (i === state.targetIdx && e.hp > 0 ? '<div class="reticle">▼</div>' : '') +
         '<div class="sprite">' + artImg('enemy', e.key, e.icon) + '</div><div class="name">' + e.name + '</div>' + sigs +
         '<div class="ehp"><i style="width:' + Math.max(0, e.hp / e.maxHp * 100) + '%"></i><span>' + e.hp + '/' + e.maxHp + '</span></div>' +
-        (e.armor > 0 ? '<div class="earmor">🛡️' + e.armor + '</div>' : '') + ih;
+        (e.armor > 0 ? '<div class="earmor">🛡️' + e.armor + '</div>' : '') +
+        (e.poison > 0 ? '<div class="epoison">🧪' + e.poison + '</div>' : '') + ih;
       (function (idx) { el.onclick = function () { showEnemyStats(idx); }; })(i);
       wrap.appendChild(el);
     });
@@ -579,6 +634,10 @@
     });
     if (res.heal > 0) { flash($('hero'), '+' + res.heal, '#5fcf8f'); S.play('heal'); }
     if (res.spiked > 0) { hurt($('hero')); flash($('hero'), '🔱−' + res.spiked, '#ff9b9b'); S.play('playerHurt'); }
+    (res.deathFx || []).forEach(function (f) {   // kitchen on-death pops: burst chip damage / poison splash
+      if (f.kind === 'burst') { hurt($('hero')); flash($('hero'), '💥−' + f.value, '#ffb454'); S.play('playerHurt'); }
+      else if (f.kind === 'deathPoison') flash($('hero'), '🧪+' + f.value, '#a6e06b');
+    });
     beanBurst(aliveBefore);
 
     // screen shake scaled to the hit magnitude
@@ -588,6 +647,7 @@
     await delay(420);
 
     if (res.allDead) { var r = E.winFight(state); afterCombat(r); return; }
+    if (state.player.hp <= 0) { renderAll(); S.play('lose'); E.loseRun(state); runOver('lose'); return; }   // self-kill (spikes/reflect) with foes still alive — lose now, no ghost enemy turn
 
     var aliveBefore2 = state.enemies.map(function (e) { return e.hp > 0; });
     var et = E.enemyTurn(state); renderAll();   // rebuilds: dead enemies settle to the static .dead end-state
@@ -599,8 +659,17 @@
       else if (a.type === 'armor' && el) flash(el.querySelector('.sprite'), '🛡️+' + a.value, '#bcd0ff');
       else if (a.type === 'thorns' && el) { hurt(el); flash(el.querySelector('.sprite'), '🌵' + a.value, '#7fd98a'); }
       else if (a.type === 'summon' && el) flash(el.querySelector('.sprite'), '✦ summoned', '#d9b3ff');
+      else if (a.type === 'allyHit' && el) { var ai = (state.player.allies || []).indexOf(a.ally); lunge($('ally' + ai), el); S.play('allyhit'); hurt(el); flash(el.querySelector('.sprite'), (a.ally && a.ally.icon ? a.ally.icon : '🤝') + '−' + a.value, '#ffd27f'); }
+      else if (a.type === 'enemyPoison' && el) { hurt(el); flash(el.querySelector('.sprite'), '🧪−' + a.value, '#a6e06b'); }
+      else if (a.type === 'poisonApplied' && el) flash(el.querySelector('.sprite'), '🌿+' + a.value, '#a6e06b');
+      else if (a.type === 'poison') flash($('hero'), '🧪+' + a.value, '#a6e06b');
+      else if (a.type === 'steal') flash($('hero'), '🫘−' + a.value, '#e0c56b');
+      else if (a.type === 'windup' && el) flash(el.querySelector('.sprite'), '🪤 arming…', '#ffb454');
+      else if (a.type === 'burst') { flash($('hero'), '💥−' + a.value, '#ffb454'); }        // on-death pop (thorns kill)
+      else if (a.type === 'deathPoison') flash($('hero'), '🧪+' + a.value, '#a6e06b');
       else if (a.type === 'debuff') flash($('hero'), DEBUFF_FX[a.debuff] || '✸', '#c89bff');
     });
+    if (et.actions.some(function (a) { return a.type === 'enemyPoison' || a.type === 'poisonApplied' || a.type === 'poison' || a.type === 'deathPoison'; })) S.play('poison');   // one hiss per turn, not per stack
     beanBurst(aliveBefore2);
     if (et.actions.some(function (a) { return a.type === 'attack'; })) {
       S.play('playerHurt');
@@ -609,16 +678,22 @@
     }
     await delay(650);
 
+    if (et.allDead) { afterCombat(E.winFight(state)); return; }   // clearing the board wins — even if the same beat drops you to 0 (Thorns can kill the last enemy on its own turn)
     if (et.playerDead) { E.loseRun(state); runOver('lose'); return; }
-    if (et.allDead) { afterCombat(E.winFight(state)); return; }   // Thorns can kill the last enemy on its own turn
-    E.advanceAfterEnemy(state, rng); busy = false; renderAll(); rollAllDice();   // fresh turn → cascade roll
+    var pz = state.player.poison || 0;                            // stacks that will tick at the top of the next turn
+    E.advanceAfterEnemy(state, rng);                             // fresh turn: poison ticks here and may set phase='lose'
+    if (pz > 0) { flash($('hero'), '🧪−' + pz, '#a6e06b'); S.play('poison'); }
+    if (state.phase === 'lose') { renderAll(); runOver('lose'); return; }   // poison was lethal — resolve centrally (no softlock)
+    busy = false; renderAll(); rollAllDice();   // fresh turn → cascade roll
   }
   // dispatch on engine phase after a combat win or a node transition
   function afterCombat(r) {
     S.play('win');   // a fight was just cleared
     M.clearBoss();   // drop any intensity layers back to the biome bed
+    flushSkinUnlocks();   // surface any skin the win just granted (event-fight onWin, Samurai/Gladiator, …)
     if (r === 'win') return runOver('win');
     if (r === 'miniboss') return showMiniboss();
+    if (r === 'map') return proceed();   // event-fight whose onWin granted no picks (e.g. ally/skin only) → back to map
     showRewards();   // 'reward'
   }
   function enterPhase() {
@@ -859,12 +934,13 @@
     function main(note) {
       var beans = state.player.runCurrency, c = C.NODECOST;
       var hasFeat = state.player.dice.some(function (d) { return d.feature; }), multi = state.player.dice.length > 1;
+      var modsLeft = 2 - ((state.reforge && state.reforge.mods) || 0);   // engine caps stamps at 2 per visit
       ov.innerHTML = '<div class="reveal">🫘 ' + beans + ' · ⚒️ Workbench</div><h2 class="win">Reforge</h2>' +
         (note ? '<p class="shopkeep">' + note + '</p>' : '<p>Spend beans to reshape your dice.</p>') +
         '<div class="cards">' +
         '<button class="card rfop" data-op="reroll"' + (beans >= c.reforgeReroll ? '' : ' disabled') + '><div class="ct">🎲 Re-roll a feature</div><div class="cd">Swap a die’s feature for a new random one.</div><div class="price">' + c.reforgeReroll + ' 🫘</div></button>' +
         '<button class="card rfop" data-op="transfer"' + ((beans >= c.reforgeTransfer && hasFeat && multi) ? '' : ' disabled') + '><div class="ct">🔀 Transfer a feature</div><div class="cd">Move a feature from one die to another.</div><div class="price">' + c.reforgeTransfer + ' 🫘</div></button>' +
-        '<button class="card rfop" data-op="facemod"' + (beans >= c.reforgeFaceMod ? '' : ' disabled') + '><div class="ct">🪨 Stamp a face mod</div><div class="cd">Apply a chosen face mod to a die.</div><div class="price">' + c.reforgeFaceMod + ' 🫘</div></button>' +
+        '<button class="card rfop" data-op="facemod"' + ((beans >= c.reforgeFaceMod && modsLeft > 0) ? '' : ' disabled') + '><div class="ct">🪨 Stamp a face mod</div><div class="cd">Apply a chosen face mod to a die (' + modsLeft + ' stamp' + (modsLeft === 1 ? '' : 's') + ' left).</div><div class="price">' + c.reforgeFaceMod + ' 🫘</div></button>' +
         '</div><button class="bigbtn" id="rfleave">Leave</button>';
       ov.querySelectorAll('.rfop').forEach(function (b) { if (b.disabled) return; b.onclick = function () { pick(b.dataset.op); }; });
       $('rfleave').onclick = proceed;
@@ -874,13 +950,13 @@
         ov.innerHTML = '<h2 class="win">Re-roll which die?</h2><p>Its feature becomes a new random one.</p><div class="diegrid">' + dieGrid(null) + '</div><button class="bigbtn ghost" id="rfback">Back</button>';
         bindDice(function (i) { E.reforgeReroll(state, i, rng); main('A fresh feature takes hold.'); });
       } else if (op === 'facemod') {
-        var mods = ['forge', 'load', 'brand', 'engrave', 'uniform', 'polish'];
+        var mods = ['forge', 'load', 'engrave', 'uniform', 'polish'];   // brand is premium-gated (treasure only)
         var btns = mods.map(function (m) { var u = C.UPGRADES.find(function (x) { return x.id === m; }); return '<button class="card rfmod" data-m="' + m + '"><div class="ct">' + u.name + '</div><div class="cd">' + u.desc + '</div></button>'; }).join('');
         ov.innerHTML = '<h2 class="win">Which face mod?</h2><div class="cards">' + btns + '</div><button class="bigbtn ghost" id="rfback">Back</button>';
         // route through the SAME face preview/confirm/diff the reward cards use; charge on confirm
         ov.querySelectorAll('.rfmod').forEach(function (b) { b.onclick = function () {
           var m = b.dataset.m, u = C.UPGRADES.find(function (x) { return x.id === m; });
-          applyWithTarget(u, false, function () { main('Stamped into the die.'); }, function (idx) { E.reforgeFaceMod(state, idx, m); });
+          applyWithTarget(u, false, function () { main('Stamped into the die.'); }, function (idx) { E.reforgeFaceMod(state, idx, m, rng); });
         }; });
       } else if (op === 'transfer') {
         ov.innerHTML = '<h2 class="win">Move from which die?</h2><p>Pick the source (must have a feature).</p><div class="diegrid">' + dieGrid(function (d) { return !!d.feature; }) + '</div><button class="bigbtn ghost" id="rfback">Back</button>';
@@ -906,7 +982,14 @@
     ov.innerHTML = '<div class="reveal">Event</div><h2 class="win">' + ev.icon + ' ' + ev.name + '</h2><p>' + ev.desc + '</p><div class="cards">' + choices + '</div>';
     ov.querySelectorAll('.eventchoice').forEach(function (b) {
       if (b.disabled) return;
-      b.onclick = function () { var msg = E.applyEvent(state, +b.dataset.i, rng); if (msg === null) return; showEventResult(msg); };
+      b.onclick = function () {
+        var ch = state.event.choices[+b.dataset.i];
+        var msg = E.applyEvent(state, +b.dataset.i, rng);
+        if (msg === null) return;                            // couldn't afford — stay on the event
+        if (state.phase === 'player') return enterPhase();   // fightThenReward ambush → straight into combat
+        if (state._eventUI) return launchEventUI();          // UI-driven outcomes (brand/poison/compost/vending)
+        showEventResult(ch && ch.dialogue ? '“' + ch.dialogue + '” ' + msg : msg);   // flavor dialogue (Talking Teapot)
+      };
     });
   }
   function showEventResult(msg) {
@@ -915,6 +998,74 @@
     var ov = $('overlay'); ov.style.display = 'flex';
     ov.innerHTML = '<h2 class="win">…and on you go.</h2><p>' + (msg || 'You move on.') + '</p><button class="bigbtn" id="evok">Continue</button>';
     $('evok').onclick = function () { E.toMap(state); enterPhase(); };
+  }
+  // dispatch UI-driven event outcomes that need a custom picker (set via state._eventUI by applyEvent)
+  function launchEventUI() {
+    var ui = state._eventUI; state._eventUI = null;
+    if (ui === 'brand') return showBrandPicker();
+    if (ui === 'poison') return showFeatureGiftPicker('poisonDie');
+    if (ui === 'compost') return showCompostPicker();
+    if (ui === 'vending') return showVending();
+    return showEventResult('');
+  }
+  // Custom Brand (Spice Rack): choose a die, then a pip 1-6; every face becomes that pip.
+  function showBrandPicker() {
+    var dice = state.player.dice;
+    if (dice.length === 1) return showPipPicker(0);
+    var ov = $('overlay'); ov.style.display = 'flex';
+    var tiles = dice.map(function (d, i) { return '<button class="diepick" data-i="' + i + '"><div class="dplabel">Die ' + (i + 1) + '</div>' + faceCell(d.value, 'big') + '</button>'; }).join('');
+    ov.innerHTML = '<div class="reveal">Custom Brand</div><h2 class="win">Choose a die</h2><p>Every face of this die becomes a pip you pick.</p><div class="diegrid">' + tiles + '</div>';
+    ov.querySelectorAll('.diepick').forEach(function (b) { b.onclick = function () { showPipPicker(+b.dataset.i); }; });
+  }
+  function showPipPicker(idx) {
+    var ov = $('overlay'); ov.style.display = 'flex';
+    var tiles = [1, 2, 3, 4, 5, 6].map(function (v) { return '<button class="pippick" data-v="' + v + '">' + faceCell(v, 'big') + '</button>'; }).join('');
+    ov.innerHTML = '<div class="reveal">Custom Brand · Die ' + (idx + 1) + '</div><h2 class="win">Pick a pip</h2><p>All six faces of Die ' + (idx + 1) + ' become this value.</p><div class="facerow pipgrid">' + tiles + '</div>';
+    ov.querySelectorAll('.pippick').forEach(function (b) { b.onclick = function () { E.brandDie(state, idx, +b.dataset.v); showEventResult('Every face of Die ' + (idx + 1) + ' is now ' + b.dataset.v + '.'); }; });
+  }
+  // Garbage Disposal: feed a die → it comes back with a feature (poisonDie). Overwrites/levels per applyFeature rules.
+  function showFeatureGiftPicker(feature) {
+    var dice = state.player.dice, F = C.FEATURES[feature];
+    var done = function (i) { E.giveFeature(state, i, feature); showEventResult('Die ' + (i + 1) + ' now carries ' + F.icon + ' ' + F.name + '.'); };
+    if (dice.length === 1) return done(0);
+    var ov = $('overlay'); ov.style.display = 'flex';
+    var tiles = dice.map(function (d, i) {
+      var feat = d.feature ? '<div class="dpfeat">' + C.FEATURES[d.feature].icon + ' ' + C.FEATURES[d.feature].name + (d.flevel > 1 ? ' ' + d.flevel : '') + '</div>' : '<div class="dpfeat none">no feature</div>';
+      return '<button class="diepick" data-i="' + i + '"><div class="dplabel">Die ' + (i + 1) + '</div>' + faceCell(d.value, 'big') + feat + '</button>';
+    }).join('');
+    ov.innerHTML = '<div class="reveal">' + F.icon + ' ' + F.name + '</div><h2 class="win">Feed a die to the disposal</h2><p>It comes back sharper — with <b>' + F.name + '</b>. ' + F.desc + ' (Replaces any feature already on that die.)</p><div class="diegrid">' + tiles + '</div>';
+    ov.querySelectorAll('.diepick').forEach(function (b) { b.onclick = function () { done(+b.dataset.i); }; });
+  }
+  // Vending Machine: one random upgrade; take it (routes through normal targeting) or pay to reroll.
+  function showVending() {
+    var offer = state.run.vendingOffer;
+    if (!offer || !offer.length) return showEventResult('The machine is empty.');
+    var u = offer[0], cost = state.run.vendingCost || 100, canRoll = state.player.runCurrency >= cost;
+    var ov = $('overlay'); ov.style.display = 'flex';
+    ov.innerHTML = '<div class="reveal">Vending Machine</div><h2 class="win">🫙 ' + u.name + '</h2><p>' + u.desc + '</p>' +
+      '<div class="rowbtns"><button class="bigbtn" id="vtake">Take it</button>' +
+      '<button class="bigbtn ghost" id="vroll"' + (canRoll ? '' : ' disabled') + '>Roll again (🫘 ' + cost + ')</button></div>';
+    $('vtake').onclick = function () { var uu = state.run.vendingOffer[0]; state.run.vendingOffer = null; applyWithTarget(uu, false, function () { showEventResult('The machine clunks. ' + uu.name + ' drops out.'); }); };
+    if (canRoll) $('vroll').onclick = function () { if (E.vendingReroll(state, rng)) showVending(); };
+  }
+  // Compost Bin: pick a die → strip its feature → plant one of three fresh features, or decline (leave it bare).
+  function showCompostPicker() {
+    var dice = state.player.dice;
+    var ov = $('overlay'); ov.style.display = 'flex';
+    var tiles = dice.map(function (d, i) {
+      var feat = d.feature ? '<div class="dpfeat">' + C.FEATURES[d.feature].icon + ' ' + C.FEATURES[d.feature].name + (d.flevel > 1 ? ' ' + d.flevel : '') + '</div>' : '<div class="dpfeat none">no feature</div>';
+      return '<button class="diepick" data-i="' + i + '"><div class="dplabel">Die ' + (i + 1) + '</div>' + faceCell(d.value, 'big') + feat + '</button>';
+    }).join('');
+    ov.innerHTML = '<div class="reveal">Compost Bin</div><h2 class="win">Compost a die</h2><p>Strip its feature and choose a fresh one from three — or walk away with it bare.</p><div class="diegrid">' + tiles + '</div>';
+    ov.querySelectorAll('.diepick').forEach(function (b) { b.onclick = function () { var i = +b.dataset.i; E.stripFeature(state, i); showCompostOffer(i); }; });
+  }
+  function showCompostOffer(idx) {
+    var offer = E.featureOffer(state, rng);
+    var ov = $('overlay'); ov.style.display = 'flex';
+    var cards = offer.map(function (u, i) { var F = C.FEATURES[u.feature]; return '<button class="card" data-i="' + i + '"><div class="ct">' + F.icon + ' ' + F.name + '</div><div class="cd">' + F.desc + '</div></button>'; }).join('');
+    ov.innerHTML = '<div class="reveal">Compost Bin · Die ' + (idx + 1) + '</div><h2 class="win">Plant a new feature</h2><p>Die ' + (idx + 1) + ' is bare. Pick one — or decline and leave it plain.</p><div class="cards">' + cards + '</div><div class="rowbtns"><button class="bigbtn ghost" id="cdecline">Decline — leave it bare</button></div>';
+    ov.querySelectorAll('.card[data-i]').forEach(function (b) { b.onclick = function () { var u = offer[+b.dataset.i]; E.giveFeature(state, idx, u.feature); showEventResult('Die ' + (idx + 1) + ' sprouts ' + C.FEATURES[u.feature].icon + ' ' + C.FEATURES[u.feature].name + '.'); }; });
+    $('cdecline').onclick = function () { showEventResult('Die ' + (idx + 1) + ' stays bare.'); };
   }
   function showMiniboss() {
     renderAll();
@@ -965,13 +1116,15 @@
     if (it.type === 'armor') return { icon: '🛡️', txt: 'Armor up by ' + it.value };
     if (it.type === 'armorAlly') return { icon: '🛡️', txt: 'Give an ally ' + it.value + ' armor' };
     if (it.type === 'summon') return { icon: '✦', txt: 'Summon another enemy' };
+    if (it.type === 'windup') return { icon: '🪤', txt: 'Arming — a massive hit lands next turn. Brace or burst it now.' };
     if (it.type === 'debuff') {
       var D = {
         hex: 'Hex you — weakens your next combo', jam: 'Jam a die to its lowest face next turn',
         lock: 'Pin your dice — only one reroll next turn', rust: 'Strip your armor for the rest of the fight',
-        seal: 'Seal a die — disable its feature next turn', fog: 'Fog the board — hide telegraphs next turn'
+        seal: 'Seal a die — disable its feature next turn', fog: 'Fog the board — hide telegraphs next turn',
+        poison: 'Poison you — stacks damage that ticks each turn'
       };
-      return { icon: '✨', txt: D[it.debuff] || 'Curse your dice' };
+      return { icon: it.debuff === 'poison' ? '🧪' : '✨', txt: D[it.debuff] || 'Curse your dice' };
     }
     return null;
   }
@@ -1005,10 +1158,11 @@
     if (p.dmgMult && p.dmgMult !== 1) out.push([p.dmgMult > 1 ? '⚔️' : '🪶', 'Damage ×' + (+p.dmgMult.toFixed(2)), p.dmgMult > 1 ? 'Your attacks hit harder.' : 'Your attacks hit softer.']);
     if (p.dmgTakenMult && p.dmgTakenMult !== 1) out.push(['💢', 'Incoming ×' + (+p.dmgTakenMult.toFixed(2)), p.dmgTakenMult > 1 ? 'You take more damage.' : 'You take less damage.']);
     if (p.comboPenalty > 0) out.push(['✨', 'Hexed −' + p.comboPenalty, 'Your next combo multiplier is reduced.']);
+    if (p.poison > 0) out.push(['🧪', 'Poisoned ×' + p.poison, p.poison + ' damage at the start of each turn (−1 stack per turn). Can be lethal.']);
     if (p.jam) out.push(['🔒', 'Jammed', 'One die will be forced to its lowest face next turn.']);
     if (p.fogged) out.push(['🌫', 'Fogged', 'Enemy telegraphs are hidden this turn.']);
     if (p.dice.some(function (d) { return d._sealedFeature != null; })) out.push(['🏷', 'Sealed', 'A die’s feature is disabled this turn.']);
-    if (p.bloodroll) out.push(['🩸', 'Bloodroll', 'Unlimited rerolls — each past your free pool costs 1 HP.']);
+    if (p.bloodroll) out.push(['🩸', 'Bloodroll', 'Unlimited rerolls — each past your free pool costs HP, doubling every use (next: ' + (p._bloodCost || 1) + ' HP; resets each turn).']);
     if (p.comboBonus > 0) out.push(['✚', 'Combo +' + p.comboBonus, 'Added to your combo multiplier every turn (capped at 5×).']);
     if (p.berserker) out.push(['💀', "Berserker's Pact", '+1% damage for every 1% of max HP you are missing.']);
     if (p.doubleOrNothing) out.push(['🎲', 'Double or Nothing', 'Each attack flips a coin: double your damage, or zero.']);
@@ -1059,8 +1213,8 @@
   }
 
   /* ---- fx --------------------------------------------------------------- */
-  var DEBUFF_FX = { hex: '✸ hexed', jam: '✸ jammed', lock: '🔒 pinned', rust: '🦠 rusted', seal: '🏷 sealed', fog: '🌫 fogged' };
-  var INTENT_DEBUFF = { hex: '✸ hex', jam: '✸ jam', lock: '🔒 pin', rust: '🦠 rust', seal: '🏷 seal', fog: '🌫 fog' };
+  var DEBUFF_FX = { hex: '✸ hexed', jam: '✸ jammed', lock: '🔒 pinned', rust: '🦠 rusted', seal: '🏷 sealed', fog: '🌫 fogged', poison: '🧪 poisoned' };
+  var INTENT_DEBUFF = { hex: '✸ hex', jam: '✸ jam', lock: '🔒 pin', rust: '🦠 rust', seal: '🏷 seal', fog: '🌫 fog', poison: '🧪 poison' };
   function hurt(el) { el.classList.add('hurt'); setTimeout(function () { el.classList.remove('hurt'); }, 300); }
   // battle-start speech bubble over the speaking enemy; clears state.speaker so it only shows once
   function showPun(sp) {
@@ -1092,13 +1246,15 @@
     $('game').appendChild(f); setTimeout(function () { f.remove(); }, 1000);
   }
   // lunge the hero toward the targeted enemy at the moment of impact, then back
-  function heroLunge(targetEl) {
-    var hero = $('hero'); if (!hero || !targetEl) return Promise.resolve();
-    var hr = hero.getBoundingClientRect(), tr = targetEl.getBoundingClientRect();
+  function heroLunge(targetEl) { return lunge($('hero'), targetEl); }
+  // generic strike lunge: move `el` a fixed reach toward `targetEl` and back (hero or an ally)
+  function lunge(el, targetEl) {
+    if (!el || !targetEl) return Promise.resolve();
+    var hr = el.getBoundingClientRect(), tr = targetEl.getBoundingClientRect();
     var dx = ((tr.left + tr.width / 2) - (hr.left + hr.width / 2)), dy = ((tr.top + tr.height / 2) - (hr.top + hr.height / 2));
     var len = Math.hypot(dx, dy) || 1, reach = 34;                // travel a fixed reach toward the target
     var ox = (dx / len) * reach, oy = (dy / len) * reach;
-    return anim(hero, [
+    return anim(el, [
       { transform: 'translate(0,0)', offset: 0 },
       { transform: 'translate(' + ox.toFixed(1) + 'px,' + oy.toFixed(1) + 'px)', offset: 0.5 },   // out (~170ms)
       { transform: 'translate(' + ox.toFixed(1) + 'px,' + oy.toFixed(1) + 'px)', offset: 0.62 },  // brief hold

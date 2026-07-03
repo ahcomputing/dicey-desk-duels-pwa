@@ -12,7 +12,7 @@ var CONTENT = {
     baseRerolls: 3,
     startCurrency: 30,     // small stipend so run 1 can buy a die or two
     startDice: 1,          // faithful to design: you begin with one die
-    hpPerUpgrade: 0.11,    // additive enemy HP scaling per upgrade (re-tuned post-expansion via sim.js)
+    hpPerUpgrade: 0.12,    // additive enemy HP scaling per upgrade (bumped 0.11→0.12 after the 2026-07 upgrade buffs pushed win rates up; re-tune via sim.js)
     atkPerUpgrade: 0.11,   // loosened from 0.18/0.12 to offset boss buffers, debuffers & deeper reward counts
     healBetweenFights: 0.10
   },
@@ -23,7 +23,7 @@ var CONTENT = {
     hp:       { base: 10,  mult: 2, inc: 5 },
     armor:    { base: 10,  mult: 2, inc: 1 },
     reroll:   { base: 100, mult: 3, inc: 1 },
-    heal:     { base: 30,  mult: 2, inc: 0.05 },          // Natural Healing: +5% to between-fight/rest heal each
+    heal:     { base: 30,  mult: 2, inc: 0.01 },          // Natural Healing: +1% to between-fight/rest heal each (nerfed from 5% — it trivialized attrition)
     beans:    { base: 20,  mult: 2, inc: 15 },            // Deep Pockets: +15 starting beans each
     luck:     { base: 40,  mult: 2, inc: 0.05 },          // Lucky Find: +5% beans from all fights each
     heirloom: { base: 60,  mult: 3, inc: 1, max: 3 }      // Heirloom: pre-applied free reward picks at run start
@@ -65,7 +65,7 @@ var CONTENT = {
             'siphon','siphonRoll','siphonCombo','siphonDamage','echo','ascend','engrave','polish','patient',
             'anchor','extradie'] },
     gambler:  { icon: '🎲', name: 'Gambler',  desc: 'A reroll & combo engine — chase the perfect roll.', signature: 'ricochet',
-      ids: ['freeroll','overcharge','banker','overflow','magnet','liveWire','allInRoll','patient',
+      ids: ['overcharge','banker','overflow','magnet','liveWire','allInRoll','patient',
             'echo','ascend','kindle','prism','jackpot','uniform','load','brand',
             'wildcard','splitter','bloodroll','anchor','ricochet'] },
     tinkerer: { icon: '🔧', name: 'Tinkerer', desc: 'AoE shockwave/bubble + control. Clear the board.',
@@ -81,32 +81,35 @@ var CONTENT = {
   FEATURES: {
     cleave:     { icon: '🌊', name: 'Cleave',      desc: "Splashes pip × combo multiplier to every untargeted enemy." },
     bulwark:    { icon: '🛡', name: 'Bulwark',     desc: "Adds this die's pip as shield each turn." },
-    bulwarkRoll:{ icon: '🌀', name: 'Tide Wall',   desc: 'Each reroll of this die adds its new pip as shield.' },
-    bulwarkCombo:{icon: '🔰', name: 'Aegis',       desc: 'Adds your combo multiplier (×2) as shield each attack.' },
-    freereroll: { icon: '🔄', name: 'Free Reroll', desc: '+1 reroll each turn.' },
+    bulwarkRoll:{ icon: '🌀', name: 'Tide Wall',   desc: 'Each reroll of this die adds its new pip as shield (first 5 rerolls each turn).' },
+    bulwarkCombo:{icon: '🔰', name: 'Aegis',       desc: 'Adds your combo multiplier (×1.5) as shield each attack.' },
     echo:       { icon: '🔮', name: 'Echo',        desc: 'Rolls twice, keeps the higher value.' },
-    overcharge: { icon: '⚡', name: 'Overcharge',  desc: 'When this die shows a 6, gain +1 reroll this turn.' },
-    banker:     { icon: '🏦', name: 'Banker',      desc: 'Each unused reroll at attack → this die’s pip as bonus damage.' },
-    whetstone:  { icon: '🪓', name: 'Whetstone',   desc: 'Each reroll of this die → +2 bonus damage this turn.' },
+    overcharge: { icon: '⚡', name: 'Overcharge',  desc: 'While this die shows a 6: +0.4 combo multiplier (× level).' },
+    banker:     { icon: '🏦', name: 'Banker',      desc: 'Each unused reroll at attack adds this die’s pip to the sum, before the combo multiplier.' },
+    whetstone:  { icon: '🪓', name: 'Whetstone',   desc: 'Each reroll of this die adds +2 to the damage sum, before the combo multiplier.' },
     siphon:     { icon: '🩸', name: 'Siphon',      desc: 'Heal this die’s pip every time you attack.' },
-    siphonRoll: { icon: '💉', name: 'Bloodletter', desc: 'Each reroll of this die heals its new pip.' },
-    siphonCombo:{ icon: '❤️‍🔥', name: 'Vital Surge', desc: 'Heal scaled by your combo multiplier (×2) each attack.' },
+    siphonRoll: { icon: '💉', name: 'Bloodletter', desc: 'Each reroll of this die heals its new pip (first 5 rerolls each turn).' },
+    siphonCombo:{ icon: '❤️‍🔥', name: 'Vital Surge', desc: 'Heal scaled by your combo multiplier (×1.5) each attack.' },
     siphonDamage:{icon: '🧛', name: 'Leech',       desc: 'Lifesteal: heal 10% of the damage you deal each attack.' },
     thorns:     { icon: '🌵', name: 'Thorns',      desc: 'Reflect this die’s pip back when an enemy hits you.' },
     thornsCombo:{ icon: '🌹', name: 'Bramble',     desc: 'Reflect damage scaled by your last combo multiplier (×2) when hit.' },
     ascend:     { icon: '⬆️', name: 'Ascend',      desc: "Rerolls of this die never show a lower number than it currently shows." },
     magnet:     { icon: '🧲', name: 'Magnet',      desc: 'Rerolls of this die bias toward the value most dice are showing.' },
-    momentum:   { icon: '🏃', name: 'Momentum',    desc: '+1 bonus damage per consecutive turn this die is left unrerolled; resets when rerolled.' },
+    momentum:   { icon: '🏃', name: 'Momentum',    desc: '+0.1 combo multiplier per consecutive turn this die is left unrerolled; resets when rerolled. Builds anew each fight.' },
     overflow:   { icon: '💧', name: 'Overflow',    desc: 'On attack, four-of-a-kind or better banks +1 reroll for next turn.' },
     piercer:    { icon: '🗡️', name: 'Piercer',     desc: 'Your attack ignores enemy armor (L2: also ignores boss damage caps).' },
-    kindle:     { icon: '🔥', name: 'Kindle',      desc: 'Each reroll of this die adds +0.1 to your combo multiplier this turn (capped +1.0).' },
-    shockwave:  { icon: '💥', name: 'Shockwave',   desc: 'Each charge hits a random enemy for 10% of your primary-target damage.' },
+    kindle:     { icon: '🔥', name: 'Kindle',      desc: 'Each reroll of this die adds +0.1 to your combo multiplier this turn (capped +1.0 per level).' },
+    shockwave:  { icon: '💥', name: 'Shockwave',   desc: 'Each charge hits a random enemy for 8% of your primary-target damage.' },
     bubble:     { icon: '🫧', name: 'Bubble',      desc: 'Each charge hits every enemy for 3% of your primary-target damage.' },
-    prism:      { icon: '🔆', name: 'Prism',       desc: 'Each die showing a 6 adds +0.2 to your combo multiplier this attack.' },
+    prism:      { icon: '🔆', name: 'Prism',       desc: '+0.2 combo multiplier (× level).' },
     counter:    { icon: '↩️', name: 'Counter',     desc: 'When an enemy hits you, bank +1 reroll for next turn.' },
-    jackpot:    { icon: '🎰', name: 'Jackpot',     desc: 'Five-of-a-kind on attack pays out bonus beans.' },
+    jackpot:    { icon: '🎰', name: 'Jackpot',     desc: 'Five-of-a-kind on attack pays out 100 beans (× level).' },
     overkill:   { icon: '🪦', name: 'Overkill',    desc: 'Damage past the target’s HP carves into the lowest-HP enemies. Levels chain to more.' },
-    ricochet:   { icon: '🎯', name: 'Ricochet',    desc: 'On attack, every reroll you made this turn fires a bolt at a random enemy for 10% of primary damage (×level).' }
+    ricochet:   { icon: '🎯', name: 'Ricochet',    desc: 'On attack, every reroll you made this turn fires a bolt at a random enemy for 15% of primary damage (×level).' },
+    poisonDie:  { icon: '🧪', name: 'Toxin',       desc: "Each attack poisons the target by this die's pips (× level). Poisoned enemies lose that much HP each turn, halving." },
+    poisonRoll: { icon: '🐍', name: 'Venom',       desc: 'Each reroll of this die (first 5 each turn) drips venom onto a RANDOM enemy: +1 poison (× level).' },
+    poisonCombo:{ icon: '☠️', name: 'Blight',      desc: 'Each attack poisons the target scaled by your combo multiplier (× level).' },
+    thornsPoison:{ icon: '🌿', name: 'Nettle',      desc: "When an enemy hits you, poison the attacker by this die's pip (× level)." }
   },
 
   // human-readable behaviour blurbs for the enemy stats screen (keyed by ENEMIES.role)
@@ -121,6 +124,7 @@ var CONTENT = {
     summoner:  { name: 'Summoner',    desc: 'Periodically calls in another foe. Cut it down before the board fills.' },
     standard:  { name: 'Standard-Bearer', desc: 'Passively buffs every ally’s attack while alive. High-priority target.' },
     hexer:     { name: 'Hexer',       desc: 'Curses your dice (✨ hex weakens your next combo); attacks on the off turn.' },
+    poisoner:  { name: 'Poisoner',    desc: 'Casts poison — stacks damage-over-time on you (🧪, decays each turn); attacks on the off turn.' },
     jammer:    { name: 'Jammer',      desc: 'Jams a die to its lowest face next turn; attacks on the off turn.' },
     jailer:    { name: 'Jailer',      desc: 'Pins your dice — caps you at a single reroll next turn; attacks on the off turn.' },
     rust:      { name: 'Rust',        desc: 'Eats your armor — strips a chunk for the rest of this fight; attacks on the off turn.' },
@@ -176,7 +180,24 @@ var CONTENT = {
     swissknife: 'I’ve got a tool for everything. Including you.',
     holepunch: 'I’ll punch right through you.',
     heavystapler: 'One heavy ka-chunk and you’re done.',
-    scissors: 'Running with me was a mistake. Snip, snip.'
+    scissors: 'Running with me was a mistake. Snip, snip.',
+    // --- kitchen biome ---
+    sugarant: 'One crumb at a time, human.',
+    antline: 'We are many. You are lunch.',
+    fruitfly: 'Buzz buzz, tiny doom.',
+    cockroach: 'You can’t squash what won’t die.',
+    maggot: 'Let me get under your skin.',
+    moldybread: 'Breathe deep. Spore’s the word.',
+    moldcolony: 'We spread. We mend. We win.',
+    rustycan: 'One scratch and you’ll lock right up.',
+    onion: 'This’ll bring a tear to your eye.',
+    chilipepper: 'I’m already fuming.',
+    sponge: 'I’ll just soak that right up.',
+    honeyblob: 'Stick with me a while.',
+    gingerbread: 'Can’t catch me — I’m the Gingerbread Man!',
+    rancidrat: 'I’ll take a bite AND your beans.',
+    moldcolossus: 'The whole fridge is mine now.',
+    mousetrap: 'Come closer. Just a little… SNAP.'
   },
 
   // role drives behaviour (handled in engine). stats + roster are pure data.
@@ -233,7 +254,76 @@ var CONTENT = {
     heavystapler:{icon:'⚙️', name: 'Industrial Stapler', hp: 40, atk: 12, gold: 55, role: 'boss', summon: 'staples', buffer: 'stickynote' },
     scissors:  { icon: '✂️', name: 'Scissors',    hp: 42, atk: 13, gold: 60, role: 'boss', summon: 'pushpin', buffer: 'headphones' },
     sharpener: { icon: '✏️', name: 'Pencil Sharpener', hp: 26, atk: 10, gold: 25, role: 'boss', summon: 'pen' },
-    swissknife:{ icon: '🔪', name: 'Swiss Army Knife', hp: 40, atk: 13, gold: 60, role: 'boss', summon: 'pushpin', buffer: 'ruler' }
+    swissknife:{ icon: '🔪', name: 'Swiss Army Knife', hp: 40, atk: 13, gold: 60, role: 'boss', summon: 'pushpin', buffer: 'ruler' },
+
+    // === KITCHEN BIOME (data only — not yet wired into the run flow) =========
+    // Params (all engine-implemented): poisonHit/poisonCast/poisonAura (see poisoner role),
+    // startArmor/startRage, summonEvery, dodge, goldSteal, deathBurst (on-death chip damage,
+    // can't kill), deathPoison (on-death poison splash), armorDecay (armor melts each round).
+    // --- Rabble: bugs & small bites (1-15) ---
+    sugarant:   { icon: '🐜', name: 'Sugar Ant',    hp: 7,  atk: 3,  gold: 3,  role: 'grunt' },
+    antline:    { icon: '🐜', name: 'Ant Line',     hp: 12, atk: 3,  gold: 7,  role: 'summoner', summon: 'sugarant', summonEvery: 1 },
+    fruitfly:   { icon: '🪰', name: 'Fruit Fly',    hp: 5,  atk: 2,  gold: 2,  role: 'swarm', hits: 2 },
+    gnatcloud:  { icon: '🦟', name: 'Gnat Cloud',   hp: 6,  atk: 2,  gold: 3,  role: 'swarm', hits: 3 },
+    pantrymoth: { icon: '🦋', name: 'Pantry Moth',  hp: 11, atk: 3,  gold: 6,  role: 'summoner', summon: 'maggot' },
+    weevil:     { icon: '🐛', name: 'Weevil',       hp: 6,  atk: 2,  gold: 3,  role: 'swarm', hits: 2 },
+    silverfish: { icon: '🐟', name: 'Silverfish',   hp: 9,  atk: 3,  gold: 5,  role: 'jammer' },
+    cockroach:  { icon: '🪳', name: 'Cockroach',    hp: 12, atk: 3,  gold: 5,  role: 'turtle', selfArmor: 3, startArmor: 3 },
+    maggot:     { icon: '🐛', name: 'Maggot',       hp: 7,  atk: 3,  gold: 3,  role: 'grunt', poisonHit: 1 },
+    housefly:   { icon: '🪰', name: 'Housefly',     hp: 8,  atk: 2,  gold: 4,  role: 'swarm', hits: 3 },
+    toothpick:  { icon: '🍢', name: 'Toothpick Soldier', hp: 6, atk: 3, gold: 3, role: 'swarm', hits: 2 },
+    chopsticks: { icon: '🥢', name: 'Chopsticks',   hp: 7,  atk: 3,  gold: 4,  role: 'swarm', hits: 2 },
+    crumbpile:  { icon: '🍞', name: 'Crumb Pile',   hp: 8,  atk: 2,  gold: 4,  role: 'swarm', hits: 3 },
+    popcorn:    { icon: '🍿', name: 'Popcorn Kernel', hp: 10, atk: 3, gold: 5, role: 'berserker', rage: 2, deathBurst: 6 },
+    skewer:     { icon: '🍢', name: 'Skewer',       hp: 8,  atk: 3,  gold: 4,  role: 'swarm', hits: 3 },
+
+    // --- Poison crew (16-25) ---
+    moldybread: { icon: '🍞', name: 'Moldy Bread',  hp: 10, atk: 2,  gold: 6,  role: 'poisoner', poisonCast: 2, poisonAura: 1 },
+    moldcolony: { icon: '🟢', name: 'Mold Colony',  hp: 12, atk: 3,  gold: 7,  role: 'mender', heal: 5, poisonAura: 1 },
+    spoiledmilk:{ icon: '🥛', name: 'Spoiled Milk', hp: 10, atk: 2,  gold: 6,  role: 'poisoner', poisonCast: 3, deathPoison: 2 },
+    rottenegg:  { icon: '🥚', name: 'Rotten Egg',   hp: 9,  atk: 3,  gold: 6,  role: 'hexer', hex: 1, deathPoison: 3 },
+    moldycheese:{ icon: '🧀', name: 'Moldy Cheese', hp: 10, atk: 3,  gold: 6,  role: 'mender', heal: 5, poisonHit: 1 },
+    rustycan:   { icon: '🥫', name: 'Rusty Can',    hp: 12, atk: 4,  gold: 6,  role: 'turtle', selfArmor: 3, startArmor: 3, poisonHit: 1 },
+    bugspray:   { icon: '🧴', name: 'Bug Spray Can', hp: 10, atk: 2, gold: 6,  role: 'poisoner', poisonCast: 2 },
+    mustardblob:{ icon: '🟡', name: 'Mustard Blob', hp: 8,  atk: 3,  gold: 5,  role: 'grunt', poisonHit: 1 },
+    compostclump:{icon: '🍂', name: 'Compost Clump', hp: 13, atk: 3, gold: 7,  role: 'summoner', summon: 'housefly', poisonAura: 1 },
+    ghostpepper:{ icon: '🌶️', name: 'Ghost Pepper', hp: 12, atk: 3, gold: 6,  role: 'berserker', rage: 3, poisonHit: 1 },
+
+    // --- Buffed by default (26-35) ---
+    chilipepper:{ icon: '🌶️', name: 'Chili Pepper', hp: 12, atk: 4, gold: 6,  role: 'berserker', rage: 3, startRage: 2 },
+    onion:      { icon: '🧅', name: 'Onion',        hp: 10, atk: 3,  gold: 6,  role: 'hexer', hex: 1 },
+    garlic:     { icon: '🧄', name: 'Garlic Clove', hp: 14, atk: 4,  gold: 7,  role: 'warden', wardArmor: 3 },
+    steelwool:  { icon: '🧽', name: 'Steel Wool',   hp: 13, atk: 4,  gold: 6,  role: 'turtle', selfArmor: 3, startArmor: 4 },
+    rollingpin: { icon: '🥖', name: 'Rolling Pin',  hp: 16, atk: 8,  gold: 8,  role: 'brute', startArmor: 4 },
+    icecube:    { icon: '🧊', name: 'Ice Cube',     hp: 12, atk: 4,  gold: 6,  role: 'turtle', selfArmor: 2, startArmor: 6, armorDecay: 1 },
+    gummybear:  { icon: '🐻', name: 'Gummy Bear',   hp: 13, atk: 4,  gold: 6,  role: 'turtle', selfArmor: 2, startArmor: 3 },
+    honeyblob:  { icon: '🍯', name: 'Honey Blob',   hp: 11, atk: 3,  gold: 6,  role: 'jammer', startArmor: 3 },
+    microwave:  { icon: '📟', name: 'Microwave',    hp: 15, atk: 4,  gold: 8,  role: 'standard', auraAtk: 2 },
+    boxgrater:  { icon: '🧀', name: 'Box Grater',   hp: 12, atk: 3,  gold: 7,  role: 'swarm', hits: 3 },
+
+    // --- Support & disruptors (36-45) ---
+    sponge:     { icon: '🧽', name: 'Sponge',       hp: 12, atk: 3,  gold: 6,  role: 'mender', heal: 6 },
+    ladle:      { icon: '🥄', name: 'Ladle',        hp: 10, atk: 3,  gold: 6,  role: 'mender', heal: 5 },
+    spatula:    { icon: '🍳', name: 'Spatula',      hp: 13, atk: 4,  gold: 7,  role: 'warden', wardArmor: 3 },
+    butter:     { icon: '🧈', name: 'Butter Stick', hp: 11, atk: 3,  gold: 6,  role: 'mender', heal: 6 },
+    sourlemon:  { icon: '🍋', name: 'Sour Lemon',   hp: 10, atk: 3,  gold: 6,  role: 'hexer', hex: 1 },
+    fridgemagnet:{icon: '🧲', name: 'Fridge Magnet', hp: 12, atk: 3, gold: 7,  role: 'jammer', startArmor: 3 },
+    flypaper:   { icon: '📜', name: 'Fly Paper',    hp: 11, atk: 3,  gold: 6,  role: 'jammer', startArmor: 3 },
+    blender:    { icon: '🌀', name: 'Blender',      hp: 14, atk: 4,  gold: 8,  role: 'summoner', summon: 'crumbpile' },
+    toaster:    { icon: '🍞', name: 'Toaster',      hp: 13, atk: 4,  gold: 7,  role: 'berserker', rage: 3 },
+    canopener:  { icon: '🔧', name: 'Can Opener',   hp: 12, atk: 4,  gold: 7,  role: 'jammer' },
+
+    // --- Heavy (46) ---
+    skillet:    { icon: '🍳', name: 'Cast-Iron Skillet', hp: 22, atk: 11, gold: 10, role: 'brute', startArmor: 5 },
+
+    // --- Minibosses & boss (47-50; role boss, drawn from MAP_KITCHEN.bossKeys when wired) ---
+    gingerbread:{ icon: '🍪', name: 'The Gingerbread Man', hp: 24, atk: 6, gold: 25, role: 'boss', heal: 4, dodge: 0.3 },
+    rancidrat:  { icon: '🐀', name: 'Rancid Rat',   hp: 36, atk: 11, gold: 30, role: 'boss', poisonHit: 2, goldSteal: 3 },
+    moldcolossus:{icon: '🟩', name: 'Mold Colossus', hp: 52, atk: 11, gold: 55, role: 'boss', poisonAura: 2, summon: 'spoiledmilk', heal: 7, bossSummonHeal: true },   // the L15 poison wall
+    mousetrap:  { icon: '🪤', name: 'The Mousetrap', hp: 62, atk: 15, gold: 80, role: 'boss', summon: 'sugarant' },   // the finale
+    // Event-only "ambush" minibosses (spawned by fightThenReward, not from any pool). PLACEHOLDER gimmicks — Aaron owes the real ones.
+    screambread:{ icon: '🍞', name: 'The Scary Bread Man', hp: 34, atk: 10, gold: 40, role: 'turtle', startArmor: 4, dodge: 0.3, heal: 4 },   // a scarier gingerbread
+    pitcher:    { icon: '🥤', name: 'The Pitcher',        hp: 30, atk: 8,  gold: 40, role: 'summoner', summon: 'icecube' }
   },
 
   // The run is a procedurally-generated branching map (see Engine.generateMap):
@@ -277,6 +367,36 @@ var CONTENT = {
     late: [ ['magnet', 'ruler', 'usb'], ['paperweight', 'cassette', 'correctionpen'], ['calculator', 'dvd', 'magnifier'], ['calculator', 'headphones', 'roguedie'] ]
   },
 
+  // --- KITCHEN BIOME staging (data only; NOT wired into the run flow yet) ------
+  // Parallel to ENCOUNTER_POOLS / MAP so the later biome task is pure wiring. Built from
+  // the used subset (fully-implemented mechanics). Cadence: minibosses at 5/10/15, boss at 20.
+  ENCOUNTER_POOLS_KITCHEN: {
+    early: [ ['sugarant'], ['fruitfly'], ['sugarant', 'maggot'], ['gnatcloud'], ['weevil', 'sugarant'], ['maggot'], ['housefly'], ['toothpick', 'fruitfly'], ['crumbpile'], ['silverfish', 'sugarant'], ['chopsticks'], ['skewer', 'weevil'], ['mustardblob'], ['fruitfly', 'gnatcloud'] ],
+    mid:   [ ['antline', 'sugarant'], ['rustycan', 'maggot'], ['moldybread', 'fruitfly'], ['onion', 'cockroach'], ['popcorn', 'mustardblob'], ['pantrymoth', 'maggot'], ['spoiledmilk', 'housefly'], ['moldycheese', 'sugarant'], ['bugspray', 'weevil'], ['sourlemon', 'crumbpile'], ['ladle', 'rustycan'], ['honeyblob', 'onion'], ['gummybear', 'popcorn'], ['fridgemagnet', 'skewer'], ['flypaper', 'maggot'], ['canopener', 'cockroach'], ['boxgrater', 'fruitfly'], ['butter', 'moldybread'], ['antline', 'mustardblob'] ],
+    late:  [ ['moldcolony', 'moldybread'], ['sponge', 'rustycan', 'maggot'], ['honeyblob', 'chilipepper'], ['moldcolony', 'antline'], ['moldybread', 'rustycan', 'onion'], ['ghostpepper', 'maggot'], ['chilipepper', 'steelwool'], ['icecube', 'moldcolony'], ['steelwool', 'bugspray'], ['garlic', 'ghostpepper'], ['microwave', 'onion', 'maggot'], ['blender', 'crumbpile'], ['toaster', 'spoiledmilk'], ['compostclump', 'housefly'], ['rottenegg', 'moldybread'], ['rollingpin', 'popcorn'], ['spatula', 'ghostpepper'], ['sponge', 'moldcolony', 'maggot'] ]
+  },
+  // Kitchen elites — tougher armored/summoner/poison-aura pairs & trios (mid vs late split, like ELITE_POOLS).
+  ELITE_POOLS_KITCHEN: {
+    mid:  [ ['steelwool', 'rustycan'], ['moldcolony', 'moldybread'], ['garlic', 'ghostpepper'], ['boxgrater', 'popcorn'] ],
+    late: [ ['skillet', 'boxgrater'], ['rollingpin', 'microwave'], ['compostclump', 'moldcolony'], ['blender', 'toaster'], ['skillet', 'ghostpepper', 'maggot'] ]
+  },
+  // Kitchen map — same generateMap schema as MAP, but with THREE escalating miniboss gates
+  // (cols 5/10/15, a fixed boss each) and the final boss at col 19. generateMap reads minibossCols[]
+  // + minibossAt{} + bossKey (see engine.js isMinibossCol / enemy population).
+  MAP_KITCHEN: {
+    cols: 20, minibossCols: [5, 10, 15], boss: 19, preBossRest: 18,
+    widthMin: 2, widthMax: 4, paths: 6,
+    minibossAt: { 5: 'gingerbread', 10: 'rancidrat', 15: 'moldcolossus' }, bossKey: 'mousetrap',
+    bands: { early: 5, mid: 13 },
+    weights: {
+      stage1: { fight: 52, elite: 10, rest: 10, treasure: 12, shop: 6, reforge: 6, event: 8 },
+      stage2: { fight: 48, elite: 18, rest: 12, treasure: 6, shop: 6, reforge: 4, event: 8 }
+    },
+    eliteMinCol: 4, treasureMaxCol: 12, treasureCap: 2,
+    shopMinCol: 5, reforgeMinCol: 4, eventMinCol: 3,
+    fightOnlyCols: 2
+  },
+
   // run economy bonuses for the miniboss leave-decision and a full clear
   RUN: { leaveBonus: 40, winBonus: 140 },
 
@@ -309,10 +429,11 @@ var CONTENT = {
   PREMIUMS: [
     { id: 'wildcard', name: 'Wildcard', desc: 'Turn one face of a die WILD — counts as any value for combos, exactly 1 for the sum.', effect: 'wildcard', cap: 1 },
     { id: 'anchor',   name: 'Anchor',   desc: 'A die persists across turns — it only changes when you manually reroll it.',       effect: 'anchor', cap: 1 },
-    { id: 'bloodroll',name: 'Bloodroll',desc: 'Unlimited rerolls — but each reroll past your free pool costs 1 HP.',             effect: 'bloodroll', cap: 1 },
+    { id: 'bloodroll',name: 'Bloodroll',desc: 'Unlimited rerolls — but each reroll past your free pool costs HP, doubling each time (1, 2, 4, 8…), resetting next turn.', effect: 'bloodroll', cap: 1 },
     { id: 'extradie', name: 'Spare Die', desc: 'Gain an extra die for the rest of this run.',                                    effect: 'extradie', cap: 2 },
     { id: 'splitter', name: 'Splitter',  desc: 'A die counts as TWO dice for combos (not the sum) — helps pairs, two pair & full houses, but never trips+.', effect: 'splitter', cap: 2 },
-    { id: 'allOrNothing',name:'All or Nothing',desc: '5× damage — but your max HP becomes 1. Any hit kills you.',               effect: 'allOrNothing', cap: 1 }
+    { id: 'allOrNothing',name:'All or Nothing',desc: '5× damage — but your max HP becomes 1. Any hit kills you.',               effect: 'allOrNothing', cap: 1 },
+    { id: 'brand',    name: 'Brand a Die', desc: 'Turn ALL faces of a die into 1s — every roll strikes as 6 and makes five-of-a-kind.',           effect: 'brand' }   // uncapped, but treasure is the only reliable source
   ],
 
   // boss "build-check" signatures. Drawn randomly each run (engine assigns params).
@@ -328,7 +449,8 @@ var CONTENT = {
     lifelink:       { icon: '🪬', name: 'Lifelink Totem', desc: 'Immune while its totem add lives. Kill the totem first.' },
     vampiric:       { icon: '🧛', name: 'Vampiric',     desc: 'Heals a share of the damage it deals you. Out-race its sustain.' },
     regen:          { icon: '💚', name: 'Regenerate',   desc: 'Heals a little every turn. Burst it down fast.' },
-    spikes:         { icon: '🔱', name: 'Spikes',       desc: 'Reflects part of your hit back at you. Watch your HP.' }
+    spikes:         { icon: '🔱', name: 'Spikes',       desc: 'Reflects part of your hit back at you. Watch your HP.' },
+    windup:         { icon: '🪤', name: 'Wind-Up',      desc: 'Arms for a turn (telegraphed), then unloads a massive hit. Brace or burst it while it arms.' }
   },
 
   // in-run reward pool (temporary). `effect` maps to Engine.EFFECTS.
@@ -336,58 +458,61 @@ var CONTENT = {
     // per-die features (effect: addFeature)
     { id: 'cleave',     name: 'Cleave (die)',      desc: 'A die splashes its pip × combo multiplier to every untargeted enemy. Your AoE answer.', effect: 'addFeature', feature: 'cleave' },
     { id: 'bulwark',    name: 'Bulwark (die)',     desc: 'A die adds its pip as shield each turn. Outlast the chip damage.',                       effect: 'addFeature', feature: 'bulwark' },
-    { id: 'bulwarkRoll',name: 'Tide Wall (die)',   desc: 'Each reroll of this die adds its new pip as shield. Rewards churn defensively.',        effect: 'addFeature', feature: 'bulwarkRoll' },
-    { id: 'bulwarkCombo',name:'Aegis (die)',       desc: 'Adds your combo multiplier (×2) as shield each attack. Big combos, big guard.',         effect: 'addFeature', feature: 'bulwarkCombo' },
-    { id: 'freeroll',   name: 'Free Reroll (die)', desc: 'A die grants +1 reroll each turn.',                                                     effect: 'addFeature', feature: 'freereroll' },
+    { id: 'bulwarkRoll',name: 'Tide Wall (die)',   desc: 'Each reroll of this die adds its new pip as shield (first 5 rerolls/turn). Rewards churn defensively.', effect: 'addFeature', feature: 'bulwarkRoll' },
+    { id: 'bulwarkCombo',name:'Aegis (die)',       desc: 'Adds your combo multiplier (×1.5) as shield each attack. Big combos, big guard.',       effect: 'addFeature', feature: 'bulwarkCombo' },
     { id: 'echo',       name: 'Echo (die)',        desc: 'A die rolls twice and keeps the higher value. Consistency.',                            effect: 'addFeature', feature: 'echo' },
-    { id: 'overcharge', name: 'Overcharge (die)',  desc: 'When this die shows a 6, gain +1 reroll this turn. Rolls into more rolls.',             effect: 'addFeature', feature: 'overcharge' },
-    { id: 'banker',     name: 'Banker (die)',      desc: 'Each unused reroll becomes this die’s pip in bonus damage. Rewards restraint.',         effect: 'addFeature', feature: 'banker' },
-    { id: 'whetstone',  name: 'Whetstone (die)',   desc: 'Each reroll of this die adds +2 bonus damage this turn. Rewards churn.',                effect: 'addFeature', feature: 'whetstone' },
+    { id: 'overcharge', name: 'Overcharge (die)',  desc: 'While this die shows a 6: +0.4 combo multiplier (× level). Chase the top face.',        effect: 'addFeature', feature: 'overcharge' },
+    { id: 'banker',     name: 'Banker (die)',      desc: 'Each unused reroll adds this die’s pip to the sum before the multiplier. Rewards restraint.', effect: 'addFeature', feature: 'banker' },
+    { id: 'whetstone',  name: 'Whetstone (die)',   desc: 'Each reroll of this die adds +2 to the sum before the combo multiplier. Rewards churn.', effect: 'addFeature', feature: 'whetstone' },
     { id: 'siphon',     name: 'Siphon (die)',      desc: 'Heal this die’s pip every time you attack. Sustain.',                                   effect: 'addFeature', feature: 'siphon' },
-    { id: 'siphonRoll', name: 'Bloodletter (die)', desc: 'Each reroll of this die heals its new pip. Sustain through churn.',                      effect: 'addFeature', feature: 'siphonRoll' },
-    { id: 'siphonCombo',name: 'Vital Surge (die)', desc: 'Heal scaled by your combo multiplier (×2) each attack. Big combos, big heals.',         effect: 'addFeature', feature: 'siphonCombo' },
+    { id: 'siphonRoll', name: 'Bloodletter (die)', desc: 'Each reroll of this die heals its new pip (first 5 rerolls/turn). Sustain through churn.', effect: 'addFeature', feature: 'siphonRoll' },
+    { id: 'siphonCombo',name: 'Vital Surge (die)', desc: 'Heal scaled by your combo multiplier (×1.5) each attack. Big combos, big heals.',       effect: 'addFeature', feature: 'siphonCombo' },
     { id: 'siphonDamage',name:'Leech (die)',       desc: 'Lifesteal: heal 10% of the damage you deal each attack. Scales with your hits.',        effect: 'addFeature', feature: 'siphonDamage' },
+    { id: 'poisonDie',  name: 'Toxin (die)',       desc: "Each attack poisons the target by this die's pips (× level). Poison ticks its stacks as HP loss each turn, halving.", effect: 'addFeature', feature: 'poisonDie' },
+    { id: 'poisonRoll', name: 'Venom (die)',       desc: 'Each reroll of this die (first 5/turn) poisons a RANDOM enemy: +1 (× level). Spread the rot through churn.', effect: 'addFeature', feature: 'poisonRoll' },
+    { id: 'poisonCombo',name: 'Blight (die)',      desc: 'Each attack poisons the target scaled by your combo multiplier (× level). Big combos, big rot.',        effect: 'addFeature', feature: 'poisonCombo' },
     { id: 'thorns',     name: 'Thorns (die)',      desc: 'Reflect this die’s pip back when an enemy hits you. Punish attackers.',                 effect: 'addFeature', feature: 'thorns' },
     { id: 'thornsCombo',name: 'Bramble (die)',     desc: 'Reflect damage scaled by your last combo multiplier (×2) when hit. Punish harder.',     effect: 'addFeature', feature: 'thornsCombo' },
+    { id: 'thornsPoison',name:'Nettle (die)',      desc: "When an enemy hits you, poison the attacker by this die's pip (× level). Thorns, but it festers.", effect: 'addFeature', feature: 'thornsPoison' },
     { id: 'ascend',     name: 'Ascend (die)',      desc: "A die's rerolls never show a lower number than it shows now (L2: never below 4). Reroll fearlessly.", effect: 'addFeature', feature: 'ascend' },
     { id: 'magnet',     name: 'Magnet (die)',      desc: 'A die rerolls biased toward your most common showing value. Chase combos.',            effect: 'addFeature', feature: 'magnet' },
-    { id: 'momentum',   name: 'Momentum (die)',    desc: '+1 bonus damage per consecutive turn this die is left alone; resets if rerolled.',      effect: 'addFeature', feature: 'momentum' },
+    { id: 'momentum',   name: 'Momentum (die)',    desc: '+0.1 combo multiplier per consecutive turn this die is left alone; resets if rerolled or when a new fight starts.', effect: 'addFeature', feature: 'momentum' },
     { id: 'overflow',   name: 'Overflow (die)',    desc: 'Four-of-a-kind or better on attack banks +1 reroll for next turn. Efficiency.',         effect: 'addFeature', feature: 'overflow' },
     { id: 'piercer',    name: 'Piercer (die)',     desc: 'Your attack ignores enemy armor. Answers turtles.',                                     effect: 'addFeature', feature: 'piercer' },
-    { id: 'kindle',     name: 'Kindle (die)',      desc: 'Each reroll of this die adds +0.1 combo multiplier this turn (capped +1.0). Rewards churn.', effect: 'addFeature', feature: 'kindle' },
-    { id: 'prism',      name: 'Prism (die)',       desc: 'Each die showing a 6 adds +0.2 combo multiplier this attack. Pairs with big-six builds.',    effect: 'addFeature', feature: 'prism' },
+    { id: 'kindle',     name: 'Kindle (die)',      desc: 'Each reroll of this die adds +0.1 combo multiplier this turn (capped +1.0 per level). Rewards churn.', effect: 'addFeature', feature: 'kindle' },
+    { id: 'prism',      name: 'Prism (die)',       desc: '+0.2 combo multiplier (× level), always on.',                                               effect: 'addFeature', feature: 'prism' },
     { id: 'counter',    name: 'Counter (die)',     desc: 'When an enemy hits you, bank +1 reroll for next turn. Turtle up, roll more.',                 effect: 'addFeature', feature: 'counter' },
-    { id: 'jackpot',    name: 'Jackpot (die)',     desc: 'Five-of-a-kind on attack pays bonus beans. For the high-combo gambler.',                     effect: 'addFeature', feature: 'jackpot' },
-    { id: 'shockwave',  name: 'Shockwave (die)',   desc: 'A die hits a random enemy for 10% of primary damage. Levels add charges. Bursty AoE.',  effect: 'addFeature', feature: 'shockwave' },
+    { id: 'jackpot',    name: 'Jackpot (die)',     desc: 'Five-of-a-kind on attack pays 100 beans (× level). For the high-combo gambler.',             effect: 'addFeature', feature: 'jackpot' },
+    { id: 'shockwave',  name: 'Shockwave (die)',   desc: 'A die hits a random enemy for 8% of primary damage. Levels add charges. Bursty AoE.',   effect: 'addFeature', feature: 'shockwave' },
     { id: 'bubble',     name: 'Bubble (die)',      desc: 'A die hits every enemy for 3% of primary damage. Levels add charges. Reliable AoE.',    effect: 'addFeature', feature: 'bubble' },
     { id: 'overkill',   name: 'Overkill (die)',    desc: 'Damage beyond the target’s HP carves into the next lowest-HP enemies; levels chain further. Brute crowd-breaker.', effect: 'addFeature', feature: 'overkill' },
-    { id: 'ricochet',   name: 'Ricochet (die)',    desc: 'On attack, every reroll you made this turn fires a bolt at a random enemy for 10% of primary damage (×level). Gambler AoE.', effect: 'addFeature', feature: 'ricochet' },
+    { id: 'ricochet',   name: 'Ricochet (die)',    desc: 'On attack, every reroll you made this turn fires a bolt at a random enemy for 15% of primary damage (×level). Gambler AoE.', effect: 'addFeature', feature: 'ricochet' },
     // AoE effect enhancers (buff every matching instance; only offered once you own the base)
-    { id: 'bubbleReinforced', name: 'Bubble: Reinforced', desc: 'Every Bubble hit deals +10 flat damage.',                  effect: 'bubbleReinforced' },
+    { id: 'bubbleReinforced', name: 'Bubble: Reinforced', desc: 'Every Bubble hit deals +6 flat damage.',                   effect: 'bubbleReinforced' },
     { id: 'bubbleBigger',     name: 'Bubble: Bigger',     desc: 'Bubble hits for 5% of primary damage (was 3%).',          effect: 'bubbleBigger', once: true },
     { id: 'bubbleDouble',     name: 'Bubble: Double',     desc: 'Every Bubble die gains +1 charge.',                       effect: 'bubbleDouble' },
-    { id: 'shockAmplified',   name: 'Shockwave: Amplified',desc: 'Shockwave hits for 15% of primary damage (was 10%).',    effect: 'shockAmplified', once: true },
+    { id: 'shockAmplified',   name: 'Shockwave: Amplified',desc: 'Shockwave hits for 12% of primary damage (was 8%).',     effect: 'shockAmplified', once: true },
     { id: 'shockChain',       name: 'Shockwave: Chain',   desc: 'Every Shockwave die gains +1 charge.',                    effect: 'shockChain' },
     { id: 'shockFocused',     name: 'Shockwave: Focused', desc: 'Shockwave targets the lowest-HP enemy instead of random.',effect: 'shockFocused', once: true },
-    // face mods (stackable)
-    { id: 'forge',      name: 'Forge a Die',       desc: 'Turn up to 2 random faces of a die into 6s.',                                           effect: 'forge' },
-    { id: 'load',       name: 'Load a Die',        desc: "Raise a die's lowest faces by one (snowballs).",                                        effect: 'load' },
-    { id: 'brand',      name: 'Brand a Die',       desc: 'Turn ALL faces of a die into 1s — every roll strikes as 6 and makes five-of-a-kind.',   effect: 'brand' },
-    { id: 'engrave',    name: 'Engrave a Die',     desc: 'Raise a die’s two lowest faces by one. Smooths the low end.',                           effect: 'engrave' },
+    // face mods (stackable; `cap` = max pickups per run — they compound hard, see runRewardAvailable)
+    { id: 'forge',      name: 'Forge a Die',       desc: 'Turn up to 2 random faces of a die into 6s.',                                           effect: 'forge', cap: 3 },
+    { id: 'load',       name: 'Load a Die',        desc: "Raise a die's two lowest faces by one.",                                                effect: 'load', cap: 3 },
+    { id: 'engrave',    name: 'Engrave a Die',     desc: 'Raise a die’s three lowest faces by one. Smooths the low end.',                         effect: 'engrave', cap: 3 },
     { id: 'uniform',    name: 'Uniform a Die',     desc: 'Set a random face to the die’s most common value. Chase a combo.',                      effect: 'uniform' },
-    { id: 'polish',     name: 'Polish a Die',      desc: 'Raise every face of a die by one (max 6). Smooths the whole die upward.',               effect: 'polish' },
+    { id: 'polish',     name: 'Polish a Die',      desc: 'Raise every face of a die by one (max 6). Smooths the whole die upward.',               effect: 'polish', cap: 2 },
     // run-wide
-    { id: 'ward',       name: 'Ward',              desc: 'Gain 2 shield at the start of each turn this run.',                                      effect: 'ward', amount: 2 },
+    { id: 'ward',       name: 'Ward',              desc: 'Gain 5 shield at the start of each turn this run.',                                      effect: 'ward', amount: 5 },
     // tradeoffs & swaps (downside always visible)
     { id: 'glassCannon',name: 'Glass Cannon',      desc: '+100% damage, but −70% max HP. Live by the dagger.',                                    effect: 'glassCannon' },
     { id: 'reckless',   name: 'Reckless',          desc: '+25% damage, but +20% damage taken.',                                                   effect: 'reckless' },
     { id: 'liveWire',   name: 'Live Wire',         desc: '+2 rerolls per turn, but −25% max HP.',                                                 effect: 'liveWire' },
-    { id: 'bulwarkStance',name: 'Bulwark Stance',  desc: '+8 shield each turn, but −20% damage.',                                                 effect: 'bulwarkStance' },
+    { id: 'bulwarkStance',name: 'Bulwark Stance',  desc: '+16 shield each turn, but −20% damage.',                                                effect: 'bulwarkStance' },
     { id: 'allInRoll',  name: 'All-In Roll',       desc: '+30% damage, but −2 rerolls per turn.',                                                 effect: 'allInRoll' },
-    { id: 'patient',    name: 'Patient',           desc: '+1 reroll per turn, but −15% damage.',                                                  effect: 'patient' },
+    { id: 'patient',    name: 'Patient',           desc: '+3 rerolls per turn, but −15% damage.',                                                 effect: 'patient' },
     { id: 'bulkUp',     name: 'Bulk Up',           desc: '+30% max HP, but −20% damage.',                                                         effect: 'bulkUp' },
     { id: 'pawnbroker', name: 'Pawnbroker',        desc: '+15% gold from fights, but −30% max HP.',                                               effect: 'pawnbroker' },
     { id: 'scarTissue', name: 'Scar Tissue',       desc: '+25% damage, but −50% natural healing.',                                                effect: 'scarTissue' },
+    { id: 'seasoned',   name: 'Seasoned',          desc: '+15% damage. No downside.',                                                             effect: 'seasoned', eventOnly: true },   // Spice Rack (Even Blend) — never in normal offers
     { id: 'berserkerPact',name:"Berserker's Pact", desc: '+1% damage for every 1% of max HP you are missing. Rewards living low.',                 effect: 'berserkerPact' },
     { id: 'greed',      name: 'Greed',             desc: '+50% gold from fights, but enemies gain +30% HP & +30% attack.',                         effect: 'greed' },
     { id: 'sacrificialDie',name:'Sacrificial Die', desc: '+3.0 combo multiplier every turn, but permanently lose one die (floor: 1).',             effect: 'sacrificialDie' },
@@ -576,6 +701,90 @@ var CONTENT = {
       choices: [
         { label: 'Offer a crumb', desc: 'It warms to you and tags along. Unlocks the Fox skin.', outcome: 'unlockSkin', skin: 'fox' },
         { label: 'Back away slowly', desc: 'Leave it be.', outcome: 'nothing' }
+      ] },
+
+    /* ===== KITCHEN EVENTS (biome:'kitchen' — inert in desk runs until the biome is wired) ===== */
+    // -- ambush minibosses (fightThenReward): "Investigate" gives no warning; the fight starts on click --
+    { id: 'breadman', icon: '🍞', name: 'The Scary Bread Man', biome: 'kitchen',
+      desc: 'A floury dust hangs in the air. Something in the pantry shadows keeps shifting its weight.',
+      choices: [
+        { label: 'Investigate', desc: 'Take a closer look.', outcome: 'fightThenReward', enemy: 'screambread',
+          onWin: { unlockSkin: 'loaf', pendingRewards: 2, beans: 30 } },
+        { label: 'Back away', desc: 'Leave the pantry be.', outcome: 'nothing' }
+      ] },
+    { id: 'pitcher', icon: '🥤', name: 'The Pitcher', biome: 'kitchen',
+      desc: 'Something sloshes behind the fridge door, tall and cold and patient.',
+      choices: [
+        { label: 'Investigate', desc: 'Open the door.', outcome: 'fightThenReward', enemy: 'pitcher',
+          onWin: { unlockSkin: 'squirt', grantAlly: { id: 'pitcherling', icon: '🥤', art: 'pitcher', name: 'Pitcherling', dmgPerTurn: 25, target: 'random' } } },
+        { label: 'Walk away', desc: 'Shut the door and move on.', outcome: 'nothing' }
+      ] },
+
+    // -- new-mechanic events --
+    { id: 'disposal', icon: '🗑️', name: 'The Garbage Disposal', biome: 'kitchen',
+      desc: 'A grinding hum comes from the drain. Feed it a die and it spits something back — sharper.',
+      choices: [
+        { label: 'Feed it a die', desc: 'A die comes back with the Toxin feature.', outcome: 'disposalReward' },
+        { label: 'Leave it be', desc: 'Back away from the drain.', outcome: 'nothing' }
+      ] },
+    { id: 'spicerack', icon: '🌶️', name: 'The Spice Rack', biome: 'kitchen',
+      desc: 'Three jars, three kinds of heat.',
+      choices: [
+        { label: 'Ghost Pepper Blend', desc: '+100% damage, but −70% max HP.', outcome: 'grantSpecificUpgrade', id: 'glassCannon' },
+        { label: 'Even Blend', desc: '+15% damage. No downside.', outcome: 'grantSpecificUpgrade', id: 'seasoned' },
+        { label: 'Custom Brand', desc: 'Pick a die and a pip — all its faces become that pip.', outcome: 'brandChosen' },
+        { label: 'Walk past', desc: 'Too spicy. Move on.', outcome: 'nothing' }
+      ] },
+    { id: 'vending', icon: '🫙', name: 'The Vending Machine', biome: 'kitchen',
+      desc: 'A rattling machine glows in the corner, coin slot sized just for you.',
+      choices: [
+        { label: 'Insert 100 beans', desc: 'Buy one random upgrade — take it or pay to reroll.', outcome: 'vendingRoll', cost: 100 },
+        { label: 'Walk away', desc: 'Keep your beans.', outcome: 'nothing' }
+      ] },
+    { id: 'compost', icon: '♻️', name: 'The Compost Bin', biome: 'kitchen',
+      desc: 'Rich black soil churns, ready to break down what you feed it.',
+      choices: [
+        { label: 'Compost a die', desc: 'Strip a die’s feature and pick a fresh one from three — or leave it bare.', outcome: 'compostReroll' },
+        { label: 'Leave it be', desc: 'Nothing to compost today.', outcome: 'nothing' }
+      ] },
+    { id: 'teapot', icon: '🫖', name: 'The Talking Teapot', biome: 'kitchen',
+      desc: 'It hums a little tune, and it clearly wants to talk.',
+      choices: [
+        { label: 'Listen', desc: 'Hear it out (+20 beans).', outcome: 'beansFlat', beans: 20, dialogue: 'Mind the mold, little one — it remembers every crumb you drop.' },
+        { label: 'Ignore it', desc: 'You have places to be.', outcome: 'nothing' }
+      ] },
+    { id: 'roguepaperclip', icon: '📎', name: 'The Rogue Paperclip', biome: 'kitchen',
+      desc: 'A bent paperclip, defected from the desk, offers its services.',
+      choices: [
+        { label: 'Hire him (20 beans)', desc: 'He tags along, jabbing a random enemy for 20 each turn — all run.', outcome: 'hireAlly', cost: 20, ally: { id: 'roguepaperclip', icon: '📎', art: 'paperclip', name: 'Rogue Paperclip', dmgPerTurn: 20, target: 'random' } },
+        { label: 'Pass', desc: 'You work alone.', outcome: 'nothing' }
+      ] },
+
+    // -- desk events reskinned for the kitchen (pure content; existing outcomes) --
+    { id: 'ovenmitt', icon: '🧤', name: 'The Warm Oven Mitt', biome: 'kitchen',
+      desc: 'A quilted mitt, still warm from the oven. A moment’s rest wouldn’t hurt.',
+      choices: [
+        { label: 'Slip it on and rest', desc: 'Heal 25% of max HP.', outcome: 'heal', pct: 0.25 },
+        { label: 'Press on', desc: 'No time to rest.', outcome: 'nothing' }
+      ] },
+    { id: 'whisk', icon: '🥄', name: 'A Loose Whisk', biome: 'kitchen',
+      desc: 'A whisk lies loose on the counter — an extra die, if you’re willing to bleed for it.',
+      choices: [
+        { label: 'Claim it (−10 HP)', desc: 'Gain a spare die this run.', outcome: 'extraDieRun', hp: 10 },
+        { label: 'Leave it', desc: 'Not worth the blood.', outcome: 'nothing' }
+      ] },
+    { id: 'knifesharpener', icon: '🔪', name: 'The Knife Sharpener', biome: 'kitchen',
+      desc: 'A whetstone wheel waits. For a price, it’ll hone one of your die features.',
+      choices: [
+        { label: 'Hone (15 beans)', desc: 'Level up a random die feature.', outcome: 'levelFeature', cost: 15 },
+        { label: 'Move on', desc: 'Keep your beans.', outcome: 'nothing' }
+      ] },
+    { id: 'fortunecookie', icon: '🥠', name: 'A Fortune Cookie', biome: 'kitchen',
+      desc: 'A lone fortune cookie. Crack it for a gamble, or just eat it.',
+      choices: [
+        { label: 'Crack it open', desc: 'A random fortune — could be HP, beans, a ward, or a hex.', outcome: 'randomTable',
+          table: [ { weight: 3, hpPct: 0.15 }, { weight: 3, beans: 12 }, { weight: 2, ward: 1 }, { weight: 2, debuff: { kind: 'combo', value: 1 } }, { weight: 2 } ] },
+        { label: 'Eat it whole', desc: 'Just a snack (+8 beans).', outcome: 'beansFlat', beans: 8 }
       ] }
   ]
 };

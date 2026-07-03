@@ -128,6 +128,14 @@
       tone({ type: 'triangle', f: 880, dur: 0.12, gain: 0.2 });
       tone({ type: 'triangle', f: 1320, dur: 0.18, gain: 0.2, at: 0.09 });
       tone({ type: 'sine', f: 2640, dur: 0.12, gain: 0.06, at: 0.09 });
+    },
+    allyhit: function () {                   // light metallic jab — an ally strike (paperclip/pitcherling)
+      tone({ type: 'square', f: 720, to: 380, dur: 0.09, gain: 0.15, attack: 0.002 });
+      tone({ type: 'triangle', f: 1500, to: 900, dur: 0.07, gain: 0.1, at: 0.01 });
+    },
+    poison: function () {                    // soft bubbling hiss — a venom/poison tick
+      noise({ filter: 'bandpass', freq: 900, q: 1.2, dur: 0.26, gain: 0.13 });
+      tone({ type: 'sine', f: 320, to: 200, dur: 0.22, gain: 0.1, attack: 0.02 });
     }
   };
 

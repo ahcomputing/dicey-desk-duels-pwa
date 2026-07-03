@@ -9,6 +9,8 @@ html,body{height:100%}
 body{font-family:ui-rounded,"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--mat);
   background-image:linear-gradient(var(--mat-line) 1px,transparent 1px),linear-gradient(90deg,var(--mat-line) 1px,transparent 1px);
   background-size:34px 34px;color:var(--ink);overflow:hidden;user-select:none;-webkit-user-select:none}
+/* kitchen biome backdrop: warm recolor of the three mat vars everything keys off (swap for a bg image later) */
+body.biome-kitchen{--mat:#2b211a;--mat-deep:#211a14;--mat-line:rgba(240,210,160,.10)}
 #game{max-width:480px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;position:relative}
 .topbar{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
 .chip{background:var(--mat-deep);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:5px 9px;font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--ink-dim);display:flex;gap:5px;align-items:center}
@@ -20,23 +22,30 @@ button.chip{font-family:inherit;line-height:1;cursor:pointer}
 .audiopop .aprow{display:flex;align-items:center;gap:8px}
 .audiopop .amute{background:none;border:none;cursor:pointer;font-size:15px;line-height:1;padding:0;width:22px}
 .audiopop .alabel{color:var(--ink-dim);font-size:12px;font-weight:700;width:52px}
+/* settings panel sound controls (reuses the audiopop row shape, larger) */
+.setbox{background:var(--mat-deep);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
+.setbox .aprow{display:flex;align-items:center;gap:10px}
+.setbox .amute{background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:0;width:26px;color:inherit}
+.setbox .alabel{color:var(--ink-dim);font-size:13px;font-weight:700;width:64px}
+.setbox input[type=range]{flex:1}
 .audiopop input[type=range]{width:110px;accent-color:var(--brass);cursor:pointer}
 .title{font-size:13px;font-weight:900;letter-spacing:.22em;color:var(--brass);opacity:.85}
-.enemies{flex:0 0 auto;min-height:172px;display:flex;justify-content:center;align-items:flex-start;gap:10px;padding:8px 12px 4px;flex-wrap:wrap}
-.enemy{width:100px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;position:relative;transition:transform .12s}
+.enemies{flex:0 1 auto;min-height:150px;max-height:296px;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;gap:10px;row-gap:14px;padding:8px 12px 4px;flex-wrap:wrap}
+.enemy{flex:1 1 0;max-width:104px;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;position:relative;transition:transform .12s}
 .enemy.dead{opacity:0;pointer-events:none}/* static end-state; the knock-off arc is played via WAAPI on the live element */
-.enemy .sprite{font-size:46px;line-height:1;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45));transition:transform .1s}
+.enemy .sprite{font-size:38px;line-height:1;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45));transition:transform .1s}
 .enemy.targeted .sprite{transform:scale(1.12)}
 .enemy.hurt .sprite{animation:shake .3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px) rotate(-5deg)}75%{transform:translateX(6px) rotate(5deg)}}
 .enemy .name{font-size:11px;font-weight:700;color:var(--ink-dim);letter-spacing:.03em}
 .enemy.targeted .name{color:var(--brass)}
-.ehp{width:96px;height:10px;border-radius:6px;background:#06201d;overflow:hidden;border:1px solid rgba(0,0,0,.35);position:relative}
+.ehp{width:min(96px,100%);height:10px;border-radius:6px;background:#06201d;overflow:hidden;border:1px solid rgba(0,0,0,.35);position:relative}
 .ehp > i{display:block;height:100%;background:linear-gradient(90deg,var(--danger),var(--danger-deep));transition:width .25s}
 .ehp span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.6)}
 .intent{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;background:#06201d;border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:3px 8px;color:var(--ink)}
 .intent.atk{color:#ffb4b4}.intent.heal{color:var(--good)}.intent.arm{color:#bcd0ff}.intent.hex{color:#d9a8ff}
-.earmor{position:absolute;top:38px;right:6px;font-size:11px;font-weight:800;color:#bcd0ff;background:#06201d;border-radius:6px;padding:1px 5px}
+.earmor{position:absolute;top:30px;right:6px;font-size:11px;font-weight:800;color:#bcd0ff;background:#06201d;border-radius:6px;padding:1px 5px}
+.epoison{position:absolute;top:30px;left:6px;font-size:11px;font-weight:800;color:#a6e06b;background:#06201d;border-radius:6px;padding:1px 5px}
 .sigs{display:flex;gap:3px;justify-content:center;font-size:13px;margin:1px 0 2px}
 .reticle{position:absolute;top:-22px;left:50%;transform:translateX(-50%);color:var(--brass);font-size:26px;line-height:1;animation:bob 1s infinite;text-shadow:0 0 8px rgba(230,178,76,.9),0 2px 3px rgba(0,0,0,.6);z-index:5;pointer-events:none}
 @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(4px)}}
@@ -47,8 +56,15 @@ button.chip{font-family:inherit;line-height:1;cursor:pointer}
 @keyframes idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 .player.hurt .hero{animation:shake .3s}
 .phpwrap{display:flex;align-items:center;gap:8px}
+/* allies flank the hero: [ally0] · hero · [ally1]; empty slots keep fixed width so the hero stays centered */
+.heroline{display:flex;align-items:center;justify-content:center;gap:16px;width:100%}
+.allyslot{width:58px;min-height:1px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.allyslot .allyicon{font-size:34px;line-height:1;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45));animation:idle 2.4s ease-in-out infinite}
+.allyslot .allyicon .art-enemy{width:40px;height:40px}
+.allyslot .allydmg{font-size:11px;font-weight:900;color:var(--brass);background:var(--mat-deep);border:1px solid rgba(255,210,127,.35);border-radius:8px;padding:0 5px}
 .shieldpip{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:900;color:#bcd0ff}
 .armorpip{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:900;color:#cdb98a}
+.poisonpip{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:900;color:#a6e06b}
 .php{width:210px;height:22px;border-radius:11px;background:#06201d;border:1px solid rgba(0,0,0,.4);overflow:hidden;position:relative}
 .php > i{display:block;height:100%;background:linear-gradient(90deg,var(--good),#3f9e6a);transition:width .3s}
 .php span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7)}
@@ -159,19 +175,22 @@ button.chip{font-family:inherit;line-height:1;cursor:pointer}
 .facetile{width:30px;height:30px;border-radius:7px;background:linear-gradient(150deg,var(--bone),var(--bone-shade));display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:5px;position:relative;box-shadow:inset 0 1px 2px rgba(0,0,0,.25)}
 .facetile .dot{width:5px;height:5px;border-radius:50%;background:var(--pip);align-self:center;justify-self:center}
 .facetile.big{width:46px;height:46px;padding:8px}
+.pipgrid{gap:10px}
+.pippick{background:none;border:none;cursor:pointer;padding:3px;border-radius:9px;transition:transform .08s}
+.pippick:hover{transform:scale(1.1)}
 .facetile.big .dot{width:8px;height:8px}
 .facetile.wild{background:linear-gradient(150deg,#caa6ff,#9a6de0)}
 .facetile .wf{grid-column:1/4;grid-row:1/4;display:flex;align-items:center;justify-content:center;font-size:16px;color:#4a1d80}
 .facetile.changed{outline:2px solid var(--brass);outline-offset:1px;box-shadow:0 0 8px rgba(230,178,76,.7)}
 .rowbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .bigbtn.ghost{background:transparent;border:2px solid var(--brass);color:var(--brass)}
+/* sticky footer back button for long scrolling menus (Upgrades / Shop / Skins) — stays reachable */
+.bigbtn.stickyback{position:sticky;bottom:0;z-index:3;align-self:stretch;margin:8px -24px -24px;border:none;border-top:1px solid rgba(255,255,255,.08);border-radius:0;background:rgba(8,24,21,.97);color:var(--brass);padding:16px 24px calc(24px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 18px rgba(8,24,21,.85)}
 .diffwrap{display:flex;flex-direction:column;gap:5px;align-items:center}
 .difflabel{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-dim)}
 .info{position:absolute;top:12px;right:14px;z-index:20;background:var(--mat-deep);border:1px solid rgba(255,255,255,.08);border-radius:50%;width:30px;height:30px;font-size:15px;font-weight:900;color:var(--ink-dim);cursor:pointer;display:flex;align-items:center;justify-content:center}
 /* workshop home: shop · character · upgrades */
 .wshome{width:100%;height:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:14px}
-/* decorative "kitchen coming soon" strip — scales to hub width, aspect preserved by the SVG viewBox */
-.wsbanner{width:100%;height:auto;display:block;border-radius:12px;pointer-events:none;opacity:.95;box-shadow:0 3px 10px rgba(0,0,0,.35)}
 .wstopbar{display:flex;align-items:flex-start;justify-content:space-between;width:100%;gap:8px;padding-top:4px}
 .wscorner{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--mat-deep);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:11px 8px;width:84px;color:var(--ink);font-size:12px;font-weight:900;letter-spacing:.04em;cursor:pointer;transition:transform .1s}
 .wscorner:active{transform:scale(.96)}
@@ -182,6 +201,16 @@ button.chip{font-family:inherit;line-height:1;cursor:pointer}
 .wschar .wssub{font-size:12px;font-weight:700;color:var(--ink-dim);letter-spacing:.04em;margin-top:8px;animation:none}
 .wsgo{width:100%;padding:20px;border:none;border-radius:18px;background:linear-gradient(180deg,var(--brass),var(--brass-deep));color:#3a2607;font-size:20px;font-weight:900;letter-spacing:.06em;box-shadow:0 6px 0 #8a651f,0 9px 16px rgba(0,0,0,.45);cursor:pointer;transition:transform .08s,box-shadow .08s;margin-bottom:6px}
 .wsgo:active{transform:translateY(4px);box-shadow:0 2px 0 #8a651f}
+/* home level switcher: current biome + a bouncing directional arrow */
+.biomepick{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;position:relative;padding:6px 60px}
+.biomelabel{font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--brass)}
+.biomehint{font-size:11px;font-weight:700;color:var(--ink-dim);letter-spacing:.03em}
+.biomearrow{position:absolute;top:50%;width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:var(--mat-deep);color:var(--brass);font-size:24px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:5}
+.biomearrow.right{right:0;animation:arrowR 1.1s ease-in-out infinite}
+.biomearrow.left{left:0;animation:arrowL 1.1s ease-in-out infinite}
+@keyframes arrowR{0%,100%{transform:translateY(-50%) translateX(0)}50%{transform:translateY(-50%) translateX(7px)}}
+@keyframes arrowL{0%,100%{transform:translateY(-50%) translateX(0)}50%{transform:translateY(-50%) translateX(-7px)}}
+.wssettings{margin-bottom:4px}
 /* upgrade enable/disable toggles */
 .togline{display:flex;align-items:center;gap:10px;background:var(--mat-deep);border:1px solid rgba(255,255,255,.08);border-left:4px solid var(--good);border-radius:12px;padding:11px 13px;text-align:left;transition:opacity .12s}
 .togline.off{border-left-color:#4a5d57;opacity:.55}

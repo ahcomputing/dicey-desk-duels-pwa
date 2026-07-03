@@ -26,7 +26,12 @@
     Cmaj7: { root: 0, pcs: [0, 4, 7, 11] },   // C E G B
     D:     { root: 2, pcs: [2, 6, 9] },        // D F# A  (the Lydian II)
     G:     { root: 7, pcs: [7, 11, 2] },       // G B D
-    Em7:   { root: 4, pcs: [4, 7, 11, 2] }     // E G B D
+    Em7:   { root: 4, pcs: [4, 7, 11, 2] },    // E G B D
+    // kitchen chords (D Dorian) — cozier/spookier than the desk's Lydian
+    Dm7:   { root: 2, pcs: [2, 5, 9, 0] },     // D F A C
+    Gm:    { root: 7, pcs: [7, 10, 2] },       // G Bb D
+    Bbmaj: { root: 10, pcs: [10, 2, 5] },      // Bb D F
+    Am:    { root: 9, pcs: [9, 0, 4] }         // A C E
   };
   var PALETTES = {
     desk: {
@@ -35,6 +40,13 @@
       progression: [CH.Cmaj7, CH.Cmaj7, CH.D, CH.D, CH.Cmaj7, CH.Cmaj7, CH.G, CH.G],
       melodyRange: [67, 81],                                    // G4 .. A5
       padCut: 1400, melodyCut: 1800, padGain: 0.5
+    },
+    kitchen: {
+      bpm: 96, rootMidi: 62,                                    // D4
+      scale: [0, 2, 3, 5, 7, 9, 10],                            // Dorian
+      progression: [CH.Dm7, CH.Dm7, CH.Gm, CH.Gm, CH.Bbmaj, CH.Bbmaj, CH.Am, CH.Am],
+      melodyRange: [69, 84],                                    // A4 .. C6
+      padCut: 1200, melodyCut: 1700, padGain: 0.5
     }
   };
 

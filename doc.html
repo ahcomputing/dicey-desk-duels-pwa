@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dicey Desk Duels — Developer Reference</title>
+<style>
+  :root {
+    --bg: #101614; --panel: #18211e; --line: #2a3833; --text: #d8e4de; --dim: #93a69e;
+    --accent: #6fd3a6; --warn: #e8c46a; --err: #e88a7a; --code-bg: #0c1210; --link: #7fc7e8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  a { color: var(--link); text-decoration: none; } a:hover { text-decoration: underline; }
+  .wrap { display: flex; max-width: 1200px; margin: 0 auto; }
+  nav { width: 230px; flex-shrink: 0; padding: 24px 8px 24px 16px; position: sticky; top: 0; height: 100vh; overflow-y: auto; font-size: 13.5px; }
+  nav b { display: block; color: var(--dim); text-transform: uppercase; font-size: 11px; letter-spacing: .08em; margin: 14px 0 4px; }
+  nav a { display: block; padding: 2px 8px; border-radius: 6px; color: var(--text); }
+  nav a:hover { background: var(--panel); text-decoration: none; }
+  main { flex: 1; min-width: 0; padding: 24px 28px 80px; }
+  h1 { font-size: 26px; margin: 8px 0 2px; } h1 + p { margin-top: 4px; }
+  h2 { font-size: 20px; margin: 44px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--accent); }
+  h3 { font-size: 16px; margin: 26px 0 6px; }
+  p, li { color: var(--text); } .dim { color: var(--dim); }
+  code { font: 13px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; color: #cfe8dc; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .callout { border-left: 3px solid var(--accent); background: var(--panel); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .callout.warn { border-color: var(--warn); } .callout.err { border-color: var(--err); }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); color: var(--dim); margin-left: 6px; vertical-align: middle; }
+  ol li, ul li { margin: 3px 0; }
+  @media (max-width: 800px) { .wrap { display: block; } nav { position: static; width: auto; height: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <b>Start</b>
+  <a href="#overview">Overview &amp; quickstart</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#state">State, phases &amp; saves</a>
+  <b>Reference</b>
+  <a href="#content">content.js data schemas</a>
+  <a href="#engine">Engine public API</a>
+  <a href="#view">view.js / audio / music</a>
+  <b>How to</b>
+  <a href="#recipe-enemy">Add an enemy</a>
+  <a href="#recipe-feature">Add a die feature</a>
+  <a href="#recipe-skin">Add a skin</a>
+  <a href="#recipe-status">Add a status effect</a>
+  <a href="#recipe-event">Add an event / sound</a>
+  <a href="#recipe-biome">Wire the kitchen biome</a>
+  <a href="#recipe-ship">Ship a change (PWA)</a>
+  <b>Beware</b>
+  <a href="#gotchas">Silent failures &amp; gotchas</a>
+  <a href="#balance">Balance tuning</a>
+</nav>
+<main>
+
+<h1>🎲 Dicey Desk Duels — Developer Reference</h1>
+<p class="dim">The deep companion to <code>README.md</code> and <code>CLAUDE.md</code>. Written for anyone (human or AI)
+changing this codebase. Line numbers are anchors as of July&nbsp;2026 — if one has drifted, grep the named symbol instead.</p>
+
+<h2 id="overview">Overview &amp; quickstart</h2>
+<p>A dice roguelike PWA: roll dice, poker-style combos multiply the sum into damage, fight across a procedurally
+generated 20-column branching map, bank beans between runs in a permanent Workshop economy. Vanilla JS,
+<b>zero dependencies, no build step</b> — the files you see are the files that ship. Live at
+<a href="https://dice.ahcomputing.com">dice.ahcomputing.com</a>.</p>
+<p>The one combat quirk everything is built around: <b>a rolled <code>1</code> strikes as a <code>6</code> for the damage sum,
+but stays a <code>1</code> for combo detection</b> (<code>evaluate()</code>, engine.js:39). A die of all 1s is both a heavy
+hitter and an automatic five-of-a-kind.</p>
+<pre><code># serve (a PWA needs http(s); file:// won't register the service worker)
+python3 -m http.server 8080          # → http://localhost:8080
+
+# verify wiring after ANY content/art/view-id change — catches silent breakage
+node validate.js
+
+# balance harness: auto-plays N runs per tier, prints win% / avg node / avg beans
+node sim.js 200
+
+# headless engine smoke test (engine.js is DOM-free and self-requires content.js)
+node -e "const E=require('./engine.js'); console.log(E.evaluate([6,6,6,1,1]))"</code></pre>
+
+<h2 id="architecture">Architecture</h2>
+<p>Three-layer split, enforced by convention and worth defending fiercely:</p>
+<table>
+<tr><th>File</th><th>Lines</th><th>Role</th><th>Hard rule</th></tr>
+<tr><td><code>content.js</code></td><td>~684</td><td>All game data: one <code>CONTENT</code> object</td><td>Pure data. No logic, no DOM. Adding a monster/upgrade should touch only this file.</td></tr>
+<tr><td><code>engine.js</code></td><td>~1034</td><td>All game logic, exported as <code>Engine</code></td><td>No DOM, no timers, no rendering. Must stay <code>require()</code>-able in node.</td></tr>
+<tr><td><code>view.js</code></td><td>~1215</td><td>DOM, input, animation, skins</td><td>The ONLY file that touches <code>document</code>. No game rules.</td></tr>
+<tr><td><code>audio.js</code></td><td>~207</td><td>Synthesized SFX (<code>Sound</code>)</td><td>Never touches game logic; view calls it. Node-safe no-op.</td></tr>
+<tr><td><code>music.js</code></td><td>~261</td><td>Generative layered music (<code>Music</code>)</td><td>Same; shares audio.js's one AudioContext via <code>Sound.context()</code>.</td></tr>
+<tr><td><code>sim.js</code></td><td>~145</td><td>Headless balance bot (node only)</td><td>Not loaded by the page. Can drift from the engine API — sanity-check before trusting.</td></tr>
+<tr><td><code>validate.js</code></td><td>—</td><td>Content/art/wiring linter (node only)</td><td>Run after every content/art/id change. ERROR = broken now; WARN = drift/staging.</td></tr>
+</table>
+
+<h3>Load order is load-bearing</h3>
+<p>index.html loads plain (non-module) scripts in this exact order:
+<code>content.js → engine.js → audio.js → music.js → view.js</code>. Each IIFE reads earlier globals at eval time:
+engine reads <code>window.CONTENT</code>; view reads <code>window.CONTENT</code> and <code>window.Engine</code>
+(hard requirement — reorder and everything is <code>undefined</code>) and <code>window.Sound</code>/<code>window.Music</code>
+(optional — stubbed with no-ops at view.js:9–10, so audio/music can be deleted without breaking the game).</p>
+<p>Every file dual-exports: <code>window.X</code> in the browser, <code>module.exports</code> in node. Keep that pattern —
+it is what makes <code>validate.js</code>/<code>sim.js</code>/headless tests possible.</p>
+
+<h3>Communication model</h3>
+<p>No event bus, no framework. The view calls an <code>Engine</code> function, the engine <b>mutates <code>state</code></b>
+and often returns a list of events/hits, and the view reads the mutated state and animates the returned events
+(e.g. <code>attack()</code> returns <code>{ev, hits, allDead, heal, coin, spiked, dodged}</code>; <code>enemyTurn()</code>
+returns <code>{actions, playerDead, allDead}</code>).</p>
+
+<h3>The four hand-synced ID namespaces</h3>
+<p>These must match <b>exactly (case-sensitive)</b> across files. Every mismatch fails silently. <code>validate.js</code> checks all four.</p>
+<table>
+<tr><th>Namespace</th><th>Defined in</th><th>Must match</th><th>On mismatch</th></tr>
+<tr><td>Enemy keys</td><td><code>CONTENT.ENEMIES</code> (content.js:201)</td><td>pool entries, <code>bossKeys</code>, <code>summon</code>/<code>buffer</code> fields, <code>art/enemy/&lt;key&gt;.png</code>, MANIFEST, <code>PUNS</code></td><td>enemy never spawns / emoji fallback</td></tr>
+<tr><td>Die feature keys</td><td><code>CONTENT.FEATURES</code> (content.js:81)</td><td><code>UPGRADES[].feature</code>, <code>Engine.FEATURE_HOOKS</code> registry, <code>art/die/&lt;key&gt;.png</code></td><td>validate.js ERRORs on a missing hooks entry</td></tr>
+<tr><td>Skin ids</td><td><code>view.js SKINS</code> (view.js:45)</td><td><code>bank.skins</code>, <code>SKIN_UNLOCKS</code>, <code>grant()</code> calls in engine, <code>unlockSkin</code> events, <code>art/skin/&lt;id&gt;.png</code></td><td>skin unobtainable / emoji fallback</td></tr>
+<tr><td>Sound names</td><td><code>audio.js FX</code> registry (audio.js:88)</td><td><code>S.play('name')</code> calls in view.js</td><td>silent no-op</td></tr>
+</table>
+
+<h2 id="state">State, phases &amp; saves</h2>
+<h3>The <code>state</code> object</h3>
+<p>One mutable object owned by view.js (<code>var state = { bank: loadBank() }</code>, view.js:161), threaded into every
+engine call. Parts:</p>
+<table>
+<tr><th>Field</th><th>Lifetime</th><th>Shape / source</th></tr>
+<tr><td><code>state.bank</code></td><td>permanent (localStorage)</td><td><code>Engine.newBank()</code> (engine.js:66): currency, diceCount, hp/armor/reroll/heal/beans/luck/heirloomBought, challenge, disabled{}, activeClass, classSaves{}, lifetime trackers (lifetimeBeans, beetleKindnessCount, capsuleGoodOutcome, tutorialOpened). View adds <code>skin</code> (equipped) + <code>skins</code> (owned map) via <code>backfillBank</code> (view.js:88).</td></tr>
+<tr><td><code>state.player</code></td><td>one run</td><td>built by <code>startRun</code> (engine.js:220): hp/maxHp/shield/armor, <code>dice[]</code>, reroll pool, dmg/goldMult modifiers, AoE tuning (bubblePct, shockPct, …), effect accumulators (<code>poison</code>, <code>pendingDebuffs</code>, <code>timedBuffs</code>, <code>trickles</code>, <code>_accFactor</code>, <code>_tempGreed</code>)</td></tr>
+<tr><td><code>state.map</code>, <code>state.run</code></td><td>one run</td><td><code>generateMap()</code> DAG of <code>{type, enemies?, next[], col, row}</code>; run bookkeeping (pos, round, pendingRewards, offer, signature, per-run achievement trackers, playtest accumulators taken/premiums/offered/rounds/death)</td></tr>
+<tr><td><code>state.enemies</code>, <code>state.targetIdx</code>, <code>state.speaker</code></td><td>one fight</td><td>spawned by <code>startFight</code>; enemy = <code>{key, icon, name, role, hp, maxHp, armor, intent, sig?}</code></td></tr>
+<tr><td><code>state.phase</code></td><td>—</td><td>the FSM driver the view renders from (below)</td></tr>
+<tr><td><code>state.skinUnlocks</code></td><td>transient queue</td><td>engine pushes skin ids; view toasts + persists (<code>flushSkinUnlocks</code>, view.js:107)</td></tr>
+</table>
+<h3>Phase FSM</h3>
+<p><code>state.phase</code> values: <code>map</code> (choose next node) · <code>player</code> (your turn in a fight) ·
+<code>reward</code> · <code>rest</code> · <code>treasure</code> · <code>shop</code> · <code>reforge</code> · <code>event</code> ·
+<code>miniboss</code> (leave-or-continue decision) · <code>win</code> · <code>lose</code> · <code>left</code>.
+The engine sets it; the view's <code>enterPhase()</code>/render switch on it. There is no enemy phase —
+the view calls <code>enemyTurn()</code> then <code>advanceAfterEnemy()</code> explicitly between player turns.</p>
+<h3>Persistence (all in view.js; the engine never touches storage)</h3>
+<table>
+<tr><th>localStorage key</th><th>What</th><th>Where</th></tr>
+<tr><td><code>underfoot.bank.v1</code></td><td>the bank (permanent progression + skins)</td><td>view.js:87 <code>loadBank</code>/<code>saveBank</code></td></tr>
+<tr><td><code>underfoot.stats.v1</code></td><td>playtest telemetry aggregate, exportable JSON</td><td>view.js:136</td></tr>
+<tr><td><code>ddd_muted</code>, <code>ddd_vol</code></td><td>SFX mute/volume</td><td>audio.js:11</td></tr>
+<tr><td><code>ddd_music_muted</code>, <code>ddd_music_vol</code></td><td>music mute/volume</td><td>music.js:12</td></tr>
+</table>
+<div class="callout warn"><b>Migration model is schema-merge, not versioned.</b> Loading does
+<code>Object.assign(E.newBank(), saved)</code> then <code>backfillBank()</code> — new fields need a default in
+<code>newBank()</code> (engine-owned) or <code>backfillBank()</code> (view/cosmetic). Nothing reads the <code>.v1</code>
+suffix; a breaking schema change means bumping the key <i>and</i> writing a real migration by hand.
+Run state (<code>player</code>/<code>run</code>/<code>enemies</code>) is never persisted — a reload abandons the run.</div>
+
+<h2 id="content">content.js data schemas</h2>
+<p>One object, <code>var CONTENT = {…}</code> (content.js:9), dual-exported. Blocks, in file order:</p>
+<table>
+<tr><th>Block</th><th>Line</th><th>What it is</th></tr>
+<tr><td><code>BALANCE</code></td><td>10</td><td>startHp 32 · baseRerolls 3 · startCurrency 30 · startDice 1 · <b>hpPerUpgrade / atkPerUpgrade 0.11</b> (additive enemy scaling per reward taken) · healBetweenFights 0.10</td></tr>
+<tr><td><code>SHOP</code></td><td>21</td><td>Workshop cost curves: <code>{base, mult, inc|max}</code>, cost = base·mult^timesBought</td></tr>
+<tr><td><code>NODECOST</code>, <code>SHOP_FLAVOR</code></td><td>33</td><td>in-run node prices (beans), shopkeeper one-liners</td></tr>
+<tr><td><code>COMBOS</code></td><td>50</td><td>multiplier table: Pair 1.5 → Five of a Kind 5</td></tr>
+<tr><td><code>CLASSES</code></td><td>58</td><td>loadout presets <code>{icon, name, desc, signature?, ids[]}</code>; ids reference UPGRADES∪PREMIUMS; <code>signature</code> is an upgrade id guaranteed in the run's first reward offer; custom1/2 are empty player slots</td></tr>
+<tr><td><code>FEATURES</code></td><td>81</td><td>die-feature catalog <code>key: {icon, name, desc}</code> — <b>display only; behaviour lives in <code>Engine.FEATURE_HOOKS</code></b> (1:1, validate-enforced)</td></tr>
+<tr><td><code>ROLES</code></td><td>113</td><td>enemy AI blurbs <code>key: {name, desc}</code> for the stats screen; behaviour is <code>setIntent()</code>'s if/else on <code>e.role</code></td></tr>
+<tr><td><code>PUNS</code> / <code>PUN_FALLBACK</code></td><td>134</td><td>battle-start one-liners keyed by enemy id</td></tr>
+<tr><td><code>ENEMIES</code></td><td>201</td><td>the roster — see schema below</td></tr>
+<tr><td><code>MAP</code></td><td>327</td><td>desk map-gen params: 20 cols, miniboss@9, boss@19, preBossRest@18, lane widths, path count, per-stage node-type weights, min-col gates, bossKeys pools</td></tr>
+<tr><td><code>ENCOUNTER_POOLS</code>(±<code>_S2</code>), <code>ELITE_POOLS</code>(±<code>_S2</code>)</td><td>344</td><td>depth-banded (early/mid/late) arrays of enemy-id groups; stage 2 (cols 10+) draws the S2 palette</td></tr>
+<tr><td><code>ENCOUNTER_POOLS_KITCHEN</code>, <code>MAP_KITCHEN</code></td><td>367</td><td>kitchen biome staging — <b>data only, not wired into the run flow yet</b> (see <a href="#recipe-biome">recipe</a>)</td></tr>
+<tr><td><code>RUN</code>, <code>SKIN_UNLOCKS</code></td><td>380</td><td>leave/win bean bonuses; condition-skin thresholds (cowboy/viking are marked PLACEHOLDER)</td></tr>
+<tr><td><code>CHALLENGE</code></td><td>394</td><td>×1–×10 difficulty dial: <code>{mult, enemy, beans, desc}</code></td></tr>
+<tr><td><code>PREMIUMS</code></td><td>408</td><td>treasure pool <code>{id, name, desc, effect, cap?}</code> — effect ∈ Engine.EFFECTS, cap = max applies/run (omit = uncapped, e.g. brand)</td></tr>
+<tr><td><code>SIGNATURES</code></td><td>419</td><td>boss build-checks <code>{icon, name, desc}</code> — each id needs an assignment branch in <code>assignSignatures</code> (engine.js:277) and handling in combat. <code>windup</code> is excluded from the random pool (mousetrap-only)</td></tr>
+<tr><td><code>UPGRADES</code></td><td>435</td><td>in-run reward pool <code>{id, name, desc, effect, feature?, amount?, once?, cap?}</code> — <code>cap: N</code> limits pickups per run (face mods; enforced in <code>runRewardAvailable</code>)</td></tr>
+<tr><td><code>EVENTS</code></td><td>513</td><td>"?" nodes <code>{id, icon, name, desc, minCol?, choices[]}</code>; each choice's <code>outcome</code> must be a branch in <code>Engine.applyEvent</code> (engine.js:854). The comment block at content.js:497 documents all outcome ids and outcome-block fields</td></tr>
+</table>
+
+<h3>Enemy schema</h3>
+<pre><code>key: { icon:'📎', name:'Paperclip', hp:6, atk:3, gold:3, role:'grunt', …roleParams }</code></pre>
+<p>Role params (consumed in <code>setIntent</code>/<code>enemyTurn</code>): <code>hits</code> (swarm), <code>heal</code> (mender, boss bossSummonHeal),
+<code>selfArmor</code> (turtle), <code>rage</code>+<code>startRage</code> (berserker), <code>wardArmor</code> (warden),
+<code>summon</code>+<code>summonEvery</code> (summoner; board capped at 4 living), <code>auraAtk</code> (standard),
+<code>hex</code> (hexer), <code>rust</code> (rust), <code>poisonCast</code> (poisoner), <code>poisonHit</code> (venom-on-hit, any role),
+<code>poisonAura</code> (stack/turn while alive), <code>startArmor</code> (spawns armored), <code>dodge</code> (miss chance vs the primary hit),
+<code>goldSteal</code> (steals run beans on hit), <code>buffer</code> (boss-only: support add spawned alongside),
+<code>bossSummonHeal</code> (mold-colossus cycle), <code>deathBurst</code> (on-death chip damage to the player, floored at
+1 HP — can't kill; <code>deathEffects</code> in engine), <code>deathPoison</code> (on-death poison splash — CAN kill later via
+the tick), <code>armorDecay</code> (armor melts N/round in <code>advanceAfterEnemy</code>).</p>
+<p>Scaling: hp/atk are multiplied by <code>(1 + BALANCE.xPerUpgrade × player.upgrades + greed)</code> then by the
+challenge tier's <code>enemy</code> factor (engine.js:60, 271). <code>gold</code> is multiplied by <code>player.goldMult</code>.</p>
+
+<h3>Die schema</h3>
+<pre><code>{ faces:[1,2,3,4,5,6], value, feature:null, flevel:0, _rr, _mom, anchor?, split? }</code></pre>
+<p>Faces are numbers 1–6 or <code>'W'</code> (wild: any value for combos, exactly 1 for the sum). Face mods are pure
+face-array ops in <code>Engine.EFFECTS</code>: forge/load/brand/engrave/uniform/polish. <code>feature</code>+<code>flevel</code>
+is the one feature slot (same feature again → level up; different → replace, see <code>applyFeature</code> engine.js:643).
+Max 5 dice; max 4 living enemies on the board. Load raises the 2 lowest faces, Engrave the 3 lowest (shared
+<code>raiseLowest</code> helper); Brand (all faces → 1) is a treasure premium, excluded from the Reforge workbench,
+which itself allows at most 2 face-mod stamps per visit (<code>state.reforge.mods</code>).</p>
+
+<h2 id="engine">Engine public API</h2>
+<p>Exported at engine.js:1017. All functions take <code>state</code> first (except pure helpers) and mutate it;
+<code>rng</code> params are optional (default <code>Math.random</code> — sim.js passes a seeded one).</p>
+<table>
+<tr><th>Group</th><th>Functions</th></tr>
+<tr><td>Pure math</td><td><code>evaluate(faces[, phantom, sumv])</code> → <code>{name, mult, sum, damage}</code> — the combo evaluator; wilds + Splitter phantoms supported</td></tr>
+<tr><td>Workshop / bank</td><td><code>newBank</code>, <code>shopCost</code>, <code>canBuy</code>, <code>buy</code>, <code>cycleChallenge</code>, <code>toggleDisabled</code>, <code>isDisabled</code>, <code>setAllDisabled</code>, <code>applyClass</code>, <code>loadClass</code>, <code>saveClass</code>, <code>resetClass</code>, <code>hasClassSave</code></td></tr>
+<tr><td>Map / run flow</td><td><code>generateMap(rng[, content])</code>, <code>startRun</code>, <code>reachable</code>, <code>enterNode(state,col,row,rng)</code>, <code>currentNode</code>, <code>toMap</code>, <code>winFight</code>, <code>restHeal</code>, <code>leaveRun</code>, <code>loseRun</code></td></tr>
+<tr><td>Turn / combat</td><td><code>startPlayerTurn(state, fresh, rng)</code>, <code>rerollDie(state, i, rng)</code>, <code>preview</code> (= the live damage readout; must agree with attack), <code>attack</code>, <code>enemyTurn</code>, <code>advanceAfterEnemy</code>, <code>effRerolls</code>, <code>setIntent</code>, <code>configureBoss(count, phase)</code></td></tr>
+<tr><td>Rewards</td><td><code>offerRewards</code> (memoized 3-card offer), <code>rewardChoices</code>, <code>rerollOffer</code>, <code>applyReward(state, id, rng, dieIndex?)</code>, <code>applyPremium</code>, <code>effectKind(effect)</code> → <code>'face'|'die'|'global'</code> (which targeting UI the view shows), <code>EFFECTS</code> (the registry itself)</td></tr>
+<tr><td>Service nodes</td><td><code>runShopCost</code>, <code>buyRunUpgrade</code>, <code>reforgeReroll</code>, <code>reforgeTransfer</code>, <code>reforgeFaceMod</code>, <code>applyEvent(state, choiceIndex, rng)</code> → flavor message (or <code>null</code> = can't afford)</td></tr>
+<tr><td>Unlocks / economy</td><td><code>evaluateSkinUnlocks(state[, ctx])</code>, <code>addBeans</code> (the single bean-income chokepoint — also accrues lifetimeBeans and re-checks unlocks)</td></tr>
+</table>
+<p>Die targeting convention: face/die effects honor <code>state._targetDie</code> (set by the caller around the
+<code>EFFECTS</code> call, engine.js:735) — pass <code>dieIndex</code> to <code>applyReward</code>/<code>applyPremium</code>
+rather than setting it yourself.</p>
+
+<h2 id="view">view.js / audio.js / music.js essentials</h2>
+<ul>
+<li><b>Art layer</b> (view.js:13–43): every sprite is <code>artImg(category, key, fallbackEmoji, opts)</code> →
+<code>&lt;img src="art/&lt;category&gt;/&lt;key&gt;.png"&gt;</code> with onload/onerror handlers on <code>window.__UFart</code>.
+Mode <code>replace</code> (enemies, hero): 404 → the emoji text node. Mode <code>layer</code> (die bodies): 404 → img removes
+itself, leaving the plain die + icon badge. Categories in use: <code>enemy</code>, <code>skin</code>, <code>die</code>, plus the
+hard-coded <code>art/banner/kitchen_coming_soon.svg</code>.</li>
+<li><b>SKINS</b> (view.js:45): 36 entries <code>{id, emoji, name, unlock, mult?|cost?|hint?}</code>; unlock ∈
+<code>free | default | challenge | shop | condition</code>. Ownership lives in <code>bank.skins</code>; the equipped one in <code>bank.skin</code>.</li>
+<li><b>Debuff label maps</b> (view.js:1073): <code>DEBUFF_FX</code> (hero flash text) and <code>INTENT_DEBUFF</code>
+(enemy telegraph label). <b>A new debuff kind must be added to BOTH</b> or it renders as a bare ✸.</li>
+<li><b>Sound</b>: <code>S.play(name)</code> with names from audio.js's <code>FX</code>: roll, lock, attack, enemyHurt,
+playerHurt, heal, shield, win, lose, button, purchase — plus <code>S.combo(baseMult)</code>, the combo-tier arpeggio
+keyed off <code>res.ev.baseMult</code> (the raw combo mult before kindle/prism bonuses).</li>
+<li><b>Music</b>: <code>M.start/stop/setBiome('desk')/enterMiniboss/enterBoss/bossPhase(2)/clearBoss</code>. Biome
+palettes live in music.js:22, structured so a <code>kitchen</code> palette drops in. Boss intensity = extra layers on the
+same 16th-note clock, not a new track.</li>
+<li><b>Playtest stats</b> (view.js:135): every run end calls <code>recordRun(result)</code>; exportable JSON aggregate — useful for tuning.</li>
+</ul>
+
+<h2 id="recipe-enemy">Recipe: add an enemy</h2>
+<p class="dim">Also a skill: <code>/add-enemy</code> (<code>.claude/skills/add-enemy/SKILL.md</code>) — if this recipe changes, update the skill in the same commit.</p>
+<ol>
+<li><code>content.js ENEMIES</code>: add <code>mykey: { icon, name, hp, atk, gold, role }</code> — <code>role</code> must exist in
+<code>ROLES</code>; add the role's params (e.g. <code>hits</code> for swarm). Look at a same-role neighbor for stat ranges at that depth.</li>
+<li>Drop its id into a band of <code>ENCOUNTER_POOLS</code>/<code>_S2</code>/<code>_KITCHEN</code> (or <code>ELITE_POOLS</code>*) — otherwise it never spawns.</li>
+<li>Optional: a <code>PUNS.mykey</code> battle-start line; falls back to <code>PUN_FALLBACK</code>.</li>
+<li>Optional: <code>art/enemy/mykey.png</code> (transparent square, ~256×256) + a line in <code>art/enemy/MANIFEST.txt</code>. No PNG = emoji fallback, by design.</li>
+<li>Bosses: <code>role:'boss'</code>, listed in <code>MAP.bossKeys</code> (or <code>MAP_KITCHEN.bossKeys</code>) instead of pools; optional <code>summon</code> (feeds Reinforcements/Lifelink) and <code>buffer</code> (support add). Signatures are drawn at random — a boss-specific forced signature is an engine edit (see the mousetrap/windup pattern, engine.js:279–284).</li>
+<li><b>Run <code>node validate.js</code></b> — it catches bad roles, unknown pool/summon ids, and manifest drift.</li>
+</ol>
+
+<h2 id="recipe-feature">Recipe: add a die feature</h2>
+<p class="dim">Also a skill: <code>/add-feature</code> (<code>.claude/skills/add-feature/SKILL.md</code>) — if this recipe changes, update the skill in the same commit.</p>
+<p>All die-feature behavior lives in ONE registry: <code>Engine.FEATURE_HOOKS</code> (engine.js, right above
+<code>rollDie</code> — its header comment documents every hook signature). A die carries exactly one feature, so each
+hook is a single dispatch. <code>validate.js</code> enforces a 1:1 pairing between <code>CONTENT.FEATURES</code> and
+<code>FEATURE_HOOKS</code> — an unwired feature is a hard ERROR, not a silent no-op.</p>
+<ol>
+<li><code>content.js FEATURES</code>: add <code>mykey: {icon, name, desc}</code> (icon doubles as the die badge fallback).</li>
+<li><code>content.js UPGRADES</code>: add <code>{ id:'mykey', name:'… (die)', desc, effect:'addFeature', feature:'mykey' }</code> so it can be offered.</li>
+<li><b>engine.js <code>FEATURE_HOOKS</code></b>: add one entry implementing the right hook(s):
+  <table>
+  <tr><th>Hook</th><th>Fires</th><th>Examples</th></tr>
+  <tr><td><code>onRoll(d, v, rng, floor) → v</code></td><td>whenever the die rolls</td><td>echo, ascend</td></tr>
+  <tr><td><code>onTurnStart(state, p, d)</code></td><td>fresh turn</td><td>bulwark, momentum stack</td></tr>
+  <tr><td><code>onReroll(state, p, d, rng)</code></td><td>after a manual reroll of this die</td><td>magnet, bulwarkRoll + siphonRoll (≤5/turn), momentum reset</td></tr>
+  <tr><td><code>damage(p, d, acc)</code></td><td>damage evaluation (preview == attack automatically)</td><td>whetstone (acc.sum), kindle (acc.kindle, capped +1), prism/overcharge/momentum (acc.mult), banker (acc.flat)</td></tr>
+  <tr><td><code>onAttack(state, p, d, ctx, acc)</code></td><td>attack resolution; ctx {ev, dealt}</td><td>siphon* (acc.heal), bulwarkCombo, overflow, jackpot</td></tr>
+  <tr><td><code>splash(d, mult)</code> / <code>aoe(state, p, d, ctx)</code></td><td>attack AoE</td><td>cleave / shockwave, bubble, ricochet</td></tr>
+  <tr><td><code>reflect(p, d)</code> / <code>counterBank(d)</code></td><td>when an enemy hits you</td><td>thorns, thornsCombo / counter</td></tr>
+  <tr><td><code>pierce: true</code> / <code>overkill: true</code></td><td>declarative flags read by <code>attack()</code></td><td>piercer / overkill</td></tr>
+  </table></li>
+<li>Levels: <code>d.flevel</code> scales the effect (picking the same feature again levels it). Honor it.</li>
+<li>Optional: add the id to fitting <code>CLASSES[].ids</code>; <code>art/die/mykey.png</code> + MANIFEST line.</li>
+<li>Verify: <code>node validate.js</code> (ERRORs on a missing registry entry), <code>node sim.js 100</code>, and check the in-fight preview equals the dealt damage.</li>
+</ol>
+
+<h2 id="recipe-skin">Recipe: add a skin</h2>
+<ol>
+<li><code>view.js SKINS</code>: add <code>{ id, emoji, name, unlock: … }</code>. Optional <code>art/skin/id.png</code> + MANIFEST line.</li>
+<li>Unlock wiring by type:
+  <ul>
+  <li><code>challenge</code> (+<code>mult: N</code>) — nothing else; granted automatically on a winning run at that tier.</li>
+  <li><code>shop</code> (+<code>cost: N</code>) — nothing else; the Workshop shop lists it automatically.</li>
+  <li><code>condition</code> (+<code>hint</code>) — three-file change: a threshold in <code>content.js SKIN_UNLOCKS</code>,
+  a <code>grant('id', condition)</code> line in <code>Engine.evaluateSkinUnlocks</code> (engine.js:956), and usually a persistent
+  counter field in <code>newBank()</code> (engine.js:66) that something increments (see beetleKindnessCount). Purely view-detectable
+  conditions can instead call view.js <code>unlockSkin('id')</code> directly (gremlin, headless pattern, view.js:118).</li>
+  <li>event-granted — an <code>EVENTS</code> choice with <code>outcome:'unlockSkin', skin:'id'</code> (robot, fox pattern).</li>
+  </ul></li>
+<li><code>node validate.js</code> verifies every condition skin has a grant path and every id has art/manifest coverage.</li>
+</ol>
+
+<h2 id="recipe-status">Recipe: add an enemy status effect (the poison pattern)</h2>
+<p>Poison is the template for any tick-based debuff. Copy its five touch points:</p>
+<ol>
+<li><b>State field</b>: initialize on <code>player</code> in <code>startRun</code> (engine.js:234 — <code>poison: 0</code> lives with the other accumulators).</li>
+<li><b>Application sites</b> in <code>enemyTurn</code>: per-hit (<code>ea.poisonHit</code>, engine.js:595), cast intent
+(<code>{type:'debuff', debuff:'poison', value}</code> set in <code>setIntent</code>, applied engine.js:607), passive aura
+(engine.js:616), and/or event-queued next-fight debuff (<code>applyPendingDebuffs</code>, engine.js:792).</li>
+<li><b>Tick</b> at the top of <code>startPlayerTurn</code> (engine.js:409): apply damage, then — critically — if it kills,
+call <code>loseRun(state)</code> and <code>return</code>. Routing death through <code>state.phase='lose'</code> centrally is what
+lets both sim and view resolve it; the view re-checks <code>phase==='lose'</code> after the enemy turn (view.js:~618)
+specifically to avoid the between-turns softlock.</li>
+<li><b>Cleanup</b> in <code>winFight</code> (engine.js:982): zero the stack / restore modified stats so nothing leaks across fights.</li>
+<li><b>View labels</b>: add the kind to BOTH <code>DEBUFF_FX</code> and <code>INTENT_DEBUFF</code> (view.js:1073–1074), or it renders blank; add a flash/status-panel readout if it persists (poison's is at view.js:~620 and ~1018).</li>
+</ol>
+
+<h2 id="recipe-event">Recipe: add an event · add a sound</h2>
+<p><b>Event</b>: add an entry to <code>content.js EVENTS</code> using an existing <code>outcome</code> id — the full menu
+(riskBite, raid, timedBuff, trickleIncome, stateScaledReward, scoutReveal, randomTable, unlockSkin, plus the simple
+pay-X-for-Y ones) is documented in the comment block at content.js:497 and covers most designs without engine work.
+Gate deep-run setpieces with <code>minCol</code>; hide a choice's outcome with <code>hidden:true</code>. A genuinely new
+outcome = one branch in <code>Engine.applyEvent</code> (engine.js:854; set <code>state.phase</code> and return a message)
+— reuse <code>resolveOutcomeBlock</code> for standard payouts.</p>
+<p><b>Sound</b>: add a synth function to <code>audio.js FX</code> (compose <code>tone()</code>/<code>noise()</code>; study neighbors),
+then call <code>S.play('name')</code> from view.js at the event point. Music reacts via the <code>M.*</code> API — don't call
+Sound/Music from engine.js, ever.</p>
+
+<h2 id="recipe-biome">Recipe: wire the kitchen biome (staged, not wired)</h2>
+<p>Current state: ~50 kitchen enemies, <code>ENCOUNTER_POOLS_KITCHEN</code>, and <code>MAP_KITCHEN</code>
+(minibosses fixed at cols 5/10/15 via <code>bossKeys{5,10,15,boss}</code>, boss at col 20) exist as data.
+Poison and the new role params are fully engine-implemented. Not yet built:</p>
+<ul>
+<li><b>Map plumbing</b>: <code>generateMap(rng, content)</code> already accepts a content override for pools, but reads
+map params from <code>(content||C).MAP</code> — it must learn to take <code>MAP_KITCHEN</code>'s shape (multiple fixed
+miniboss columns with per-column boss keys, boss at col index 20 → 21 columns) and pick pools by biome. Suggested
+approach: a <code>biome</code> arg that selects <code>{MAP, pools}</code>, keeping the desk path byte-identical.</li>
+<li><b>Run flow</b>: how a run reaches the kitchen (post-desk continuation? a Workshop selector?) — a design decision, not code.</li>
+<li><b>View</b>: biome-aware backdrop/banner (the <code>art/banner/kitchen_coming_soon.svg</code> teaser is hard-coded at view.js:~195).</li>
+<li><b>Music</b>: add a <code>kitchen</code> palette to music.js <code>PALETTES</code> (music.js:22 — the structure anticipates it) and call <code>M.setBiome('kitchen')</code> on entry.</li>
+<li><b>Art</b>: all 50 kitchen enemies currently run on emoji fallbacks (validate.js WARNs). The bestiary advises shipping only ~12–15; <code>kitchen_bestiary.md</code> is the design source.</li>
+<li><b>Mechanics are complete</b>: poison, and (as of July 2026) <code>deathBurst</code>/<code>deathPoison</code>/<code>armorDecay</code> are all engine-implemented with view feedback — the biome needs only map wiring + art + music.</li>
+</ul>
+
+<h2 id="recipe-ship">Recipe: ship a change (PWA cache discipline)</h2>
+<p class="dim">Also a skill: <code>/ship</code> (<code>.claude/skills/ship/SKILL.md</code>) — if this recipe changes, update the skill in the same commit.</p>
+<ol>
+<li>Run <code>node validate.js</code> and <code>node sim.js 100</code> (after balance changes).</li>
+<li><b>Bump <code>const CACHE = 'dice-duels-vN'</code> in sw.js</b> (sw.js:2). Online clients get fresh code anyway
+(shell is network-first), but the bump purges old caches and is what updates <i>offline/installed</i> clients.</li>
+<li>New non-art file that the app needs offline? Add it to the <code>SHELL</code> list (sw.js:3). <b>Never add art/ PNGs to
+SHELL</b> — one 404 rejects the whole <code>addAll()</code> and the PWA silently never installs; art is runtime-cached
+cache-first instead (sw.js:32).</li>
+<li>"My change doesn't show up" during dev = stale SW cache. Hard-reload, or DevTools → Application → Service Workers →
+Update/Unregister. Suspect this before suspecting the code.</li>
+</ol>
+
+<h2 id="gotchas">Silent failures &amp; gotchas</h2>
+<table>
+<tr><th>Symptom</th><th>Cause</th><th>Defense</th></tr>
+<tr><td>Enemy shows an emoji, not art</td><td>missing or mis-cased <code>art/enemy/&lt;key&gt;.png</code> (exact, case-sensitive match)</td><td>by design for staging; <code>validate.js</code> lists them</td></tr>
+<tr><td>Summon/reinforcement never appears</td><td><code>summon</code>/pool id not in <code>ENEMIES</code> → <code>spawnEnemy</code> returns null, skipped</td><td><code>validate.js</code> ERROR</td></tr>
+<tr><td>Sound never plays</td><td>unknown name — <code>play()</code> returns if <code>!FX[name]</code></td><td><code>validate.js</code> ERROR</td></tr>
+<tr><td>Condition skin can never unlock</td><td>threshold key missing from <code>SKIN_UNLOCKS</code> → engine defaults it to <code>Infinity</code></td><td><code>validate.js</code> ERROR</td></tr>
+<tr><td>Die feature does nothing</td><td>key missing from <code>Engine.FEATURE_HOOKS</code></td><td><code>validate.js</code> ERROR + <a href="#recipe-feature">recipe</a></td></tr>
+<tr><td>Debuff renders as bare ✸</td><td>kind missing from <code>DEBUFF_FX</code>/<code>INTENT_DEBUFF</code> (view.js:1073)</td><td>add to both maps</td></tr>
+<tr><td>Upgrade throws when picked</td><td><code>effect</code> name not in <code>Engine.EFFECTS</code></td><td><code>validate.js</code> ERROR</td></tr>
+<tr><td>PWA never installs offline</td><td>a SHELL path 404s → <code>addAll()</code> rejects silently</td><td><code>validate.js</code> ERROR</td></tr>
+<tr><td>Code change invisible in browser</td><td>stale service-worker cache</td><td>hard reload / bump CACHE; see <a href="#recipe-ship">shipping</a></td></tr>
+</table>
+<p>More traps:</p>
+<ul>
+<li><b>Preview must equal attack.</b> The damage readout and the actual hit share <code>effEval</code> — if you add damage
+logic in <code>attack()</code> without <code>featureBonus</code>/<code>effEval</code> awareness, the preview lies.</li>
+<li><b>Turning every reward off falls back to the full pool</b> (<code>enabledPool</code>, engine.js:709) — "all disabled" ≠ "no rewards".</li>
+<li><b>Combo multiplier is globally capped at 5×</b> (effEval, engine.js:467); board capped at 4 living enemies; hand capped at 5 dice.</li>
+<li><b><code>addBeans</code> is the only legal way to grant beans</b> — bypassing it skips lifetimeBeans and skin-unlock checks.</li>
+<li><b>Engine functions assume <code>state.bank</code> exists</b> (skin unlocks, bean accrual). sim.js supplies one; so must any new harness.</li>
+<li><b>view.js and index.html cannot be require()d</b> — validate.js parses them as text; if you restructure the
+<code>SKINS</code> array or audio's <code>FX</code> block, check validate.js's extraction regexes still match.</li>
+<li><b>sim.js is not auto-synced with the engine</b> — after renaming/removing an Engine function, grep sim.js.</li>
+</ul>
+
+<h2 id="balance">Balance tuning</h2>
+<p class="dim">Also a skill: <code>/balance</code> (<code>.claude/skills/balance/SKILL.md</code>) — if this section changes, update the skill in the same commit.</p>
+<ul>
+<li><b>Global difficulty curve</b>: <code>BALANCE.hpPerUpgrade</code>/<code>atkPerUpgrade</code> — additive enemy scaling per
+reward the player takes (currently 0.12/0.11; history: 0.18/0.12 → 0.11/0.11 when the map grew to 20 nodes, → 0.12 HP after
+the July 2026 upgrade buffs). This is the single most sensitive knob in the game.</li>
+<li><b>Workflow</b>: change a knob → <code>node sim.js 300</code> → compare win% across tiers (bare/mid/full/classes).
+The bot is a deliberate lower bound (cautious, skips reforge) — read results as a relative curve, not a skill ceiling.
+Human data: the playtest stats export in the Workshop (view.js:135).</li>
+<li><b>Local knobs</b>: per-enemy stats and pool composition (content.js), <code>CHALLENGE</code> tier factors,
+<code>SHOP</code> cost curves, <code>RUN</code> bonuses, <code>NODECOST</code>, <code>MAP</code> weights/gates.</li>
+<li><b>Known placeholders to tune with real data</b>: <code>SKIN_UNLOCKS.cowboyLifetimeBeans</code> (50 000) and
+<code>SKIN_UNLOCKS.vikingTurnDamage</code> (500), both marked PLACEHOLDER in content.js.</li>
+<li>Design intent and locked decisions live in <code>dice_roguelike_design.md</code> (status legend: LOCKED / OPEN / TO BRAINSTORM);
+kitchen plans in <code>kitchen_bestiary.md</code>.</li>
+</ul>
+
+<p class="dim" style="margin-top:48px">Generated July 2026. Keep this file current: when a recipe or anchor stops matching
+reality, fix it in the same commit that moved the code. <code>doc.html</code> is deliberately not in the service-worker
+shell and not linked from the game — it's a dev artifact.</p>
+
+</main>
+</div>
+</body>
+</html>
