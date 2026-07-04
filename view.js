@@ -650,7 +650,11 @@
     // screen shake scaled to the hit magnitude
     if (res.hits.some(function (h) { return h.amount > 0; })) screenShake(res.ev ? 4 + (res.ev.mult - 1) * 4 : 4);
 
-    await Promise.all(knocks);   // let the death arcs finish before the next render replaces them
+    // let the death arcs finish before the next render replaces them — but NEVER wait on them
+    // unboundedly: a Web Animations `finished` promise can stall (e.g. Android throttles/pauses
+    // animations when the app backgrounds mid-arc) and a hung await here wedges `busy` with no
+    // exception for the catch below to recover from. The race caps the wait at ~3 arc durations.
+    await Promise.race([Promise.all(knocks), delay(1200)]);
     await delay(420);
 
     if (res.allDead) { var r = E.winFight(state); afterCombat(r); return; }

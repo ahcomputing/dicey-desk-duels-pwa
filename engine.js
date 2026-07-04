@@ -365,7 +365,7 @@
       var hurt = state.enemies.find(function (o) { return o !== e && o.hp > 0 && o.hp < o.maxHp; });
       e.intent = hurt ? { type: 'heal', value: Math.round(scaleAtk(a.heal, up, g) * ch) } : { type: 'attack', value: atk };
     } else if (e.role === 'turtle') {
-      e.intent = (round % 2 === 1) ? { type: 'armor', value: Math.round(a.selfArmor * ch) } : { type: 'attack', value: atk };
+      e.intent = (round % 2 === 1) ? { type: 'armor', value: Math.round((a.selfArmor || 2) * ch) } : { type: 'attack', value: atk };   // || 2 mirrors warden's wardArmor fallback — a turtle without selfArmor must not intend NaN armor (NaN then poisons e.armor → e.hp → unkillable)
     } else if (e.role === 'swarm') {
       e.intent = { type: 'attack', value: atk, hits: a.hits };
     } else if (e.role === 'berserker') {

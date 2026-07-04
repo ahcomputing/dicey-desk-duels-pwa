@@ -321,8 +321,8 @@ var CONTENT = {
     rancidrat:  { icon: '🐀', name: 'Rancid Rat',   hp: 36, atk: 11, gold: 30, role: 'boss', poisonHit: 2, goldSteal: 3 },
     moldcolossus:{icon: '🟩', name: 'Mold Colossus', hp: 52, atk: 11, gold: 55, role: 'boss', poisonAura: 2, summon: 'spoiledmilk', heal: 7, bossSummonHeal: true },   // the L15 poison wall
     mousetrap:  { icon: '🪤', name: 'The Mousetrap', hp: 62, atk: 15, gold: 80, role: 'boss', summon: 'sugarant' },   // the finale
-    // Event-only "ambush" minibosses (spawned by fightThenReward, not from any pool). PLACEHOLDER gimmicks — Aaron owes the real ones.
-    screambread:{ icon: '🍞', name: 'The Scary Bread Man', hp: 34, atk: 10, gold: 40, role: 'turtle', startArmor: 4, dodge: 0.3, heal: 4 },   // a scarier gingerbread
+    // Event-only "ambush" minibosses (spawned by fightThenReward, not from any pool).
+    screambread:{ icon: '🍞', name: 'The Scary Bread Man', hp: 55, atk: 14, gold: 55, role: 'turtle', selfArmor: 8, startArmor: 6, dodge: 0.3 },   // the gingerbread's nightmare: a dodging armor wall that hits near-finale hard — burst him on his attack turn
     pitcher:    { icon: '🥤', name: 'The Pitcher',        hp: 30, atk: 8,  gold: 40, role: 'summoner', summon: 'icecube' }
   },
 

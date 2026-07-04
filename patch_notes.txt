@@ -81,6 +81,15 @@ BUGFIXES
 * You can now PASS on rewards — a "Skip (take nothing)" button on the reward
   screen lets you decline an upgrade. Bonus: skipping doesn't bump enemy scaling,
   so taking nothing keeps the next fights a touch easier.
+* The Scary Bread Man is no longer a fraud. He was missing his armor stat, so
+  his shield-up turn read "NaN" — and that NaN could quietly corrupt him into
+  an unkillable state. Fixed, and while we were in there he got the buff his
+  name always promised: more health, finale-grade hits, real armor stacking,
+  and that infuriating dodge. Burst him on his attack turn or suffer.
+  (The validator now catches any enemy missing a stat its role needs.)
+* Belt-AND-suspenders for frozen turns: if a death animation stalls (some
+  phones pause animations when the app backgrounds mid-arc), the turn now
+  times out and hands control back instead of wedging the Attack button.
 * FOUND IT: the ally soft-lock. If a pet struck an enemy that survived your
   attack, its strike animation crashed mid-turn and the Attack button never
   came back. Pets now lunge properly and the turn always hands back to you.

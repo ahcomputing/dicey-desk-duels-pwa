@@ -60,10 +60,17 @@ if (!FX_NAMES.length) err('could not extract FX sound names from audio.js — di
  * ========================================================================= */
 section('enemies & pools');
 var enemyKeys = Object.keys(C.ENEMIES);
+// roles whose intent math reads a per-enemy stat field — missing it meant NaN intents, and NaN
+// armor/heal poisons e.armor → e.hp → the enemy can become unkillable (the screambread bug,
+// 2026-07; turtle now has an engine || 2 fallback, mender's heal still NaNs). Either way a
+// missing field is a content mistake worth failing on. warden/berserker/summoner have sane || fallbacks.
+var ROLE_REQUIRES = { turtle: 'selfArmor', mender: 'heal' };
 enemyKeys.forEach(function (k) {
   var e = C.ENEMIES[k];
   if (!C.ROLES[e.role]) err('ENEMIES.' + k + ' has role "' + e.role + '" which is not in CONTENT.ROLES (stats screen breaks, behaviour falls to plain attack)');
   ['hp', 'atk', 'gold'].forEach(function (f) { if (typeof e[f] !== 'number') err('ENEMIES.' + k + '.' + f + ' is not a number'); });
+  var reqField = ROLE_REQUIRES[e.role];
+  if (reqField && typeof e[reqField] !== 'number') err('ENEMIES.' + k + ' (role ' + e.role + ') is missing numeric "' + reqField + '" — its intent shows NaN and can corrupt the enemy into an unkillable state');
   if (!e.icon) err('ENEMIES.' + k + ' has no icon (emoji fallback renders blank)');
 });
 
