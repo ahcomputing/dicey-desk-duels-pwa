@@ -23,10 +23,12 @@ node -e "const E=require('./engine.js'); console.log(E.evaluate([6,6,6,1,1]))"  
 python3 -m http.server 8080   # manual check (PWA needs http; file:// won't register the SW)
 ```
 
-Known baseline (July 2026): validate.js reports 1 pre-existing ERROR (`heavystapler.summon: 'staples'`
-doesn't exist — its Reinforcements signature silently no-ops) and WARNs for missing kitchen art +
-unreachable staged kitchen enemies. Don't add new errors; fixing that one means adding a `staples`
-enemy or repointing the summon.
+Known baseline (July 2026): validate.js reports 11 pre-existing ERRORs — 1× `heavystapler.summon:
+'staples'` doesn't exist (its Reinforcements signature silently no-ops; fixing it means adding a
+`staples` enemy or repointing the summon) and 10× orphan `art/skin/*.png` (dj, duelist, ghost,
+lighthousekeeper, moth, mountaineer, owlscholar, snail, werewolf, yeti) — **intentional** stockpiled
+art for future skins (user, 2026-07-03); leave the files, don't "fix" them. Plus WARNs for missing
+kitchen art + the matching stale MANIFEST lines. Don't add new errors.
 
 ## The trap this codebase sets
 

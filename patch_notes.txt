@@ -75,6 +75,26 @@ BUGFIXES
   landed on the same beat, the run could end in a loss even though you'd cleared
   the board — or soft-lock. Now clearing the board always wins (yes, even at 0 HP);
   dropping to 0 with a foe still standing is the only way that ends in a loss.
+* Combat can no longer soft-lock: if anything unexpected trips mid-turn, the
+  fight now recovers to a playable state instead of freezing with a greyed-out
+  Attack button (and logs the cause to the console for us to chase down).
+* You can now PASS on rewards — a "Skip (take nothing)" button on the reward
+  screen lets you decline an upgrade. Bonus: skipping doesn't bump enemy scaling,
+  so taking nothing keeps the next fights a touch easier.
+* FOUND IT: the ally soft-lock. If a pet struck an enemy that survived your
+  attack, its strike animation crashed mid-turn and the Attack button never
+  came back. Pets now lunge properly and the turn always hands back to you.
+* Allies past the first two now actually show up — extra pets stack onto the
+  flanks instead of fighting invisibly from the void.
+* Dead bosses stay dead: a boss finished off by Thorns can no longer
+  counter-attack you or call reinforcements from beyond the grave.
+* Exploding enemies (looking at you, popcorn) no longer resurrect you — the
+  "a death-pop can't kill you" mercy rule was quietly reviving players who were
+  already dead from something else that turn.
+* The Gremlin skin is now actually earnable. Clearing the miniboss at exactly
+  0 HP and pressing on unlocks it, as the hint always claimed — previously the
+  between-fights heal kicked in first and made the feat impossible to detect.
+* Summons and boss reinforcements now respect the six-enemy board cap.
 * Fixed: the Gingerbread Man (the L5 kitchen speed-bump) could roll a boss
   signature such as Lifelink and turn unkillable — immune to all attack damage
   behind a totem while only poison chipped through. He's the gentle intro he was

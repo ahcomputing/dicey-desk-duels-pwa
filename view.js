@@ -450,17 +450,22 @@
     var sp = $('shieldpip'); if (p.shield > 0) { sp.style.display = 'flex'; $('shieldval').textContent = p.shield; } else sp.style.display = 'none';
     var ap = $('armorpip'); if (p.armor > 0) { ap.style.display = 'flex'; $('armorval').textContent = p.armor; } else ap.style.display = 'none';
     var pp = $('poisonpip'); if (p.poison > 0) { pp.style.display = 'flex'; $('poisonval').textContent = p.poison; } else pp.style.display = 'none';
-    // event-granted pets flank the hero (allies[0] left, allies[1] right); persist across the run
+    // event-granted pets flank the hero (evens stack left, odds right — the engine doesn't cap
+    // ally count, so every ally must get an element or its hits render as unexplained damage);
+    // persist across the run
     var allies = p.allies || [];
-    renderAllySlot('ally0', allies[0]);
-    renderAllySlot('ally1', allies[1]);
+    renderAllySlot('ally0', allies.filter(function (_, i) { return i % 2 === 0; }), 0);
+    renderAllySlot('ally1', allies.filter(function (_, i) { return i % 2 === 1; }), 1);
   }
-  function renderAllySlot(id, al) {
+  function renderAllySlot(id, list, parity) {
     var el = $(id); if (!el) return;
-    if (!al) { el.innerHTML = ''; el.classList.remove('on'); return; }
+    if (!list.length) { el.innerHTML = ''; el.classList.remove('on'); return; }
     el.classList.add('on');
-    var face = al.art ? artImg('enemy', al.art, al.icon || '🤝', { cls: 'allyart' }) : (al.icon || '🤝');   // recruited foes wear their enemy sprite (emoji fallback)
-    el.innerHTML = '<div class="allyicon" title="' + (al.name || 'Ally') + ' — ' + al.dmgPerTurn + ' dmg/turn to a random enemy">' + face + '</div><div class="allydmg">' + al.dmgPerTurn + '</div>';
+    el.innerHTML = list.map(function (al, k) {
+      var face = al.art ? artImg('enemy', al.art, al.icon || '🤝', { cls: 'allyart' }) : (al.icon || '🤝');   // recruited foes wear their enemy sprite (emoji fallback)
+      return '<div class="allyunit" id="allyunit' + (k * 2 + parity) + '">' +   // id carries the allies[] index, so allyHit can lunge the exact pet
+        '<div class="allyicon" title="' + (al.name || 'Ally') + ' — ' + al.dmgPerTurn + ' dmg/turn to a random enemy">' + face + '</div><div class="allydmg">' + al.dmgPerTurn + '</div></div>';
+    }).join('');
   }
   function renderEnemies() {
     var wrap = $('enemies'); wrap.innerHTML = '';
@@ -594,6 +599,7 @@
     if (busy || state.phase !== 'player') return;
     var t = state.enemies[state.targetIdx]; if (!t || t.hp <= 0) return;
     busy = true; $('attackbtn').disabled = true;
+    try {
     var targetIdx = state.targetIdx, targetEl = enemyEl(targetIdx);   // capture the LIVE target before resolving
     var aliveBefore = state.enemies.map(function (e) { return e.hp > 0; });
     var shieldBefore = state.player.shield;   // detect shield gained during this attack (Aegis etc.)
@@ -601,7 +607,8 @@
     renderPlayer();   // update player hp/shield/armor WITHOUT rebuilding enemies (keeps live elements for knock-off)
 
     // hero lunge toward the target at the moment of impact
-    var lunge = heroLunge(targetEl);
+    // (no `var lunge =` — a local would shadow the module lunge() that the allyHit branch below calls)
+    heroLunge(targetEl);
     S.play('attack'); S.combo(res.ev ? res.ev.baseMult : 1);   // thud + combo-scaled stinger
     if (state.player.shield > shieldBefore) S.play('shield');
     if (!prefersReduced()) await delay(150);
@@ -659,7 +666,7 @@
       else if (a.type === 'armor' && el) flash(el.querySelector('.sprite'), '🛡️+' + a.value, '#bcd0ff');
       else if (a.type === 'thorns' && el) { hurt(el); flash(el.querySelector('.sprite'), '🌵' + a.value, '#7fd98a'); }
       else if (a.type === 'summon' && el) flash(el.querySelector('.sprite'), '✦ summoned', '#d9b3ff');
-      else if (a.type === 'allyHit' && el) { var ai = (state.player.allies || []).indexOf(a.ally); lunge($('ally' + ai), el); S.play('allyhit'); hurt(el); flash(el.querySelector('.sprite'), (a.ally && a.ally.icon ? a.ally.icon : '🤝') + '−' + a.value, '#ffd27f'); }
+      else if (a.type === 'allyHit' && el) { var ai = (state.player.allies || []).indexOf(a.ally); lunge($('allyunit' + ai), el); S.play('allyhit'); hurt(el); flash(el.querySelector('.sprite'), (a.ally && a.ally.icon ? a.ally.icon : '🤝') + '−' + a.value, '#ffd27f'); }
       else if (a.type === 'enemyPoison' && el) { hurt(el); flash(el.querySelector('.sprite'), '🧪−' + a.value, '#a6e06b'); }
       else if (a.type === 'poisonApplied' && el) flash(el.querySelector('.sprite'), '🌿+' + a.value, '#a6e06b');
       else if (a.type === 'poison') flash($('hero'), '🧪+' + a.value, '#a6e06b');
@@ -685,6 +692,12 @@
     if (pz > 0) { flash($('hero'), '🧪−' + pz, '#a6e06b'); S.play('poison'); }
     if (state.phase === 'lose') { renderAll(); runOver('lose'); return; }   // poison was lethal — resolve centrally (no softlock)
     busy = false; renderAll(); rollAllDice();   // fresh turn → cascade roll
+    } catch (err) {
+      // never let a mid-turn error freeze combat (a stuck `busy` greys the attack button = softlock).
+      // log the real cause (surfaces the exact file:line on any build) and recover to a playable state.
+      console.error('doAttack recovered from error:', err);
+      busy = false; renderAll();
+    }
   }
   // dispatch on engine phase after a combat win or a node transition
   function afterCombat(r) {
@@ -786,7 +799,8 @@
     var picks = E.offerRewards(state), left = state.run.pendingRewards, tok = state.run.optionRerolls;
     ov.innerHTML = '<div class="reveal">🫘 ' + state.player.runCurrency + ' this run' + (left > 1 ? ' · ' + left + ' picks left' : '') + '</div>' +
       '<h2 class="win">Pick a Reward</h2><p>Temporary build pieces for this run. Each pick also bumps enemy scaling.</p><div class="cards" id="rc"></div>' +
-      '<button class="bigbtn ghost" id="rcReroll"' + (tok > 0 ? '' : ' disabled') + '>🎲 Reroll options (' + tok + ' left)</button>';
+      '<button class="bigbtn ghost" id="rcReroll"' + (tok > 0 ? '' : ' disabled') + '>🎲 Reroll options (' + tok + ' left)</button>' +
+      '<button class="bigbtn ghost" id="rcSkip">Skip (take nothing)</button>';
     var wrap = $('rc');
     picks.forEach(function (u) {
       var c = document.createElement('div'); c.className = 'card';
@@ -795,6 +809,7 @@
       wrap.appendChild(c);
     });
     $('rcReroll').onclick = function () { if (E.rerollOffer(state)) showRewards(); };
+    $('rcSkip').onclick = function () { E.skipReward(state); if (state.run.pendingRewards > 0) showRewards(); else proceed(); };   // decline: no upgrade, no scaling bump
   }
 
   /* ---- die targeting: pick a die (and preview/diff for face mods) -------- */
@@ -1076,7 +1091,8 @@
       '<div class="card" id="press"><div class="ct">Press on</div><div class="cd">Continue to node 20. Bigger prize, real risk.</div></div></div>';
     $('leave').onclick = function () { E.leaveRun(state); runOver('left'); };
     // gremlin: "I died, but I lived" — cleared the miniboss at 0 HP and chose to press on
-    $('press').onclick = function () { if (state.player.hp <= 0) unlockSkin('gremlin'); proceed(); };
+    // (_wonAtZero is sampled in winFight before the between-fights heal; hp itself is always ≥1 here)
+    $('press').onclick = function () { if (state.player._wonAtZero) unlockSkin('gremlin'); proceed(); };
   }
   function runOver(kind) {
     if (kind === 'lose') S.play('lose');

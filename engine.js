@@ -648,7 +648,7 @@
       if (e.hp > 0 || e._deathFx) return;
       e._deathFx = true;
       var a = C.ENEMIES[e.key] || {};
-      if (a.deathBurst) { var amt = Math.round(a.deathBurst * chal(state)); damagePlayer(state, amt, {}); if (p.hp <= 0) p.hp = 1; out.push({ enemy: e, kind: 'burst', value: amt }); }
+      if (a.deathBurst) { var amt = Math.round(a.deathBurst * chal(state)), before = p.hp; damagePlayer(state, amt, {}); if (p.hp <= 0 && before > 0) p.hp = 1; out.push({ enemy: e, kind: 'burst', value: amt }); }   // floor only rescues from the burst itself — never revives a player something else already killed
       if (a.deathPoison) { p.poison = (p.poison || 0) + a.deathPoison; out.push({ enemy: e, kind: 'deathPoison', value: a.deathPoison }); }
     });
   }
@@ -690,7 +690,7 @@
       else if (it.type === 'heal') { var hurt = state.enemies.find(function (o) { return o !== e && o.hp > 0 && o.hp < o.maxHp; }) || (e.hp < e.maxHp ? e : null); if (hurt) { hurt.hp = Math.min(hurt.maxHp, hurt.hp + it.value); actions.push({ enemy: hurt, type: 'heal', value: it.value }); } }
       else if (it.type === 'armor') { e.armor += it.value; actions.push({ enemy: e, type: 'armor', value: it.value }); }
       else if (it.type === 'armorAlly') { var ally = state.enemies.find(function (o) { return o !== e && o.hp > 0; }) || e; ally.armor += it.value; actions.push({ enemy: ally, type: 'armor', value: it.value }); }
-      else if (it.type === 'summon') { var spawn = spawnEnemy(it.key, state); if (spawn) { state.enemies.push(spawn); actions.push({ enemy: spawn, type: 'summon' }); } }
+      else if (it.type === 'summon') { if (state.enemies.filter(function (o) { return o.hp > 0; }).length < 6) { var spawn = spawnEnemy(it.key, state); if (spawn) { state.enemies.push(spawn); actions.push({ enemy: spawn, type: 'summon' }); } } }   // re-check the board cap at spawn time — the intent was gated when set, but the board can fill in between
       else if (it.type === 'debuff') {
         if (it.debuff === 'hex') p.comboPenalty = (p.comboPenalty || 0) + it.value;
         else if (it.debuff === 'poison') p.poison = (p.poison || 0) + it.value;             // poisoner cast: stacks damage-over-time
@@ -703,10 +703,12 @@
       }
       // poison aura: a stack every turn just by being alive (mold colony, mold colossus)
       var epa = C.ENEMIES[e.key]; if (epa && epa.poisonAura) { p.poison = (p.poison || 0) + epa.poisonAura; actions.push({ enemy: e, type: 'poison', value: epa.poisonAura }); }
-      // --- boss signatures (passive, fire regardless of intent) ---
-      if (e.sig) {
+      // --- boss signatures (passive, fire regardless of intent — but not from a corpse:
+      // thorns reflect above can zero e.hp mid-iteration, and a dead boss must not riposte,
+      // call reinforcements, or harden) ---
+      if (e.sig && e.hp > 0) {
         if (e.sig.hardening && (p.dealtThisTurn || 0) < e.sig.hardening.threshold) { e.armor += e.sig.hardening.gain; actions.push({ enemy: e, type: 'armor', value: e.sig.hardening.gain }); }
-        if (e.sig.reinforcements) { var th = e.sig.reinforcements.at[e._reinforced]; if (th != null && e.hp / e.maxHp <= th) { e._reinforced++; var add = spawnEnemy(e.sig.reinforcements.key, state); if (add) { state.enemies.push(add); setIntent(state, add); actions.push({ enemy: add, type: 'summon' }); } } }
+        if (e.sig.reinforcements) { var th = e.sig.reinforcements.at[e._reinforced]; if (th != null && e.hp / e.maxHp <= th && state.enemies.filter(function (o) { return o.hp > 0; }).length < 6) { e._reinforced++; var add = spawnEnemy(e.sig.reinforcements.key, state); if (add) { state.enemies.push(add); setIntent(state, add); actions.push({ enemy: add, type: 'summon' }); } } }   // honor the 6-enemy board cap (summon intents are gated; reinforcements must be too)
         if (e.sig.riposte) { damagePlayer(state, e.sig.riposte, { sunder: !!e.sig.shieldSunder }); actions.push({ enemy: e, type: 'attack', total: e.sig.riposte, riposte: true }); }
         if (e.sig.regen && e.hp > 0 && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + e.sig.regen); actions.push({ enemy: e, type: 'heal', value: e.sig.regen }); }
       }
@@ -854,6 +856,13 @@
     var u = C.UPGRADES.find(function (x) { return x.id === upgradeId; }); if (!u) return 0;
     state._targetDie = dieIndex; EFFECTS[u.effect](state, u, rng); state._targetDie = null;
     state.player.upgrades++; state.run.offer = null; state.run.taken.push(u.id);   // next pick draws a fresh offer; record the pick
+    if (state.run.pendingRewards > 0) state.run.pendingRewards--;
+    return state.run.pendingRewards;
+  }
+  // decline a reward (take nothing): consume the pick WITHOUT the upgrade — so you also dodge the
+  // enemy-scaling bump (no player.upgrades++). Drops the cached offer so any next pick draws fresh.
+  function skipReward(state) {
+    state.run.offer = null;
     if (state.run.pendingRewards > 0) state.run.pendingRewards--;
     return state.run.pendingRewards;
   }
@@ -1139,6 +1148,7 @@
     if (p.rustLost) { p.armor += p.rustLost; p.rustLost = 0; }
     p.dice.forEach(function (d) { if (d._sealedFeature != null) { d.feature = d._sealedFeature; d._sealedFeature = null; d._seal = 0; } });
     p.fogged = false; p._fog = 0; p.rerollLock = false;
+    p._wonAtZero = p.hp <= 0;   // Gremlin: cleared the fight at exactly 0 HP — sampled BEFORE the heal below (which is always ≥1, so hp is never 0 by the time the view checks)
     p.hp = Math.min(p.maxHp, p.hp + Math.ceil(p.maxHp * C.BALANCE.healBetweenFights * (p.healMult || 1)));
     // event-fight (fightThenReward): resolve the onWin block, then route to reward (if it granted picks) or back to the map
     if (state.run.eventFight) {
@@ -1147,6 +1157,7 @@
       state.phase = state.run.pendingRewards > 0 ? 'reward' : 'map';
       return state.phase;
     }
+    if (!node) { state.run.pendingRewards = 1; state.phase = 'reward'; return 'reward'; }   // defensive: never deref a null node (run.pos unset) → resolve to a reward instead of throwing (softlock)
     if (node.type === 'boss') {
       state.phase = 'win'; state.bank.currency += p.runCurrency + C.RUN.winBonus;
       state.bank.lifetimeBeans = (state.bank.lifetimeBeans || 0) + C.RUN.winBonus;   // win bonus counts toward lifetime earned (Cowboy)
@@ -1182,7 +1193,7 @@
     advanceAfterEnemy: advanceAfterEnemy, winFight: winFight, loseRun: loseRun,
     restHeal: restHeal, leaveRun: leaveRun, applyPremium: applyPremium,
     rewardChoices: rewardChoices, offerRewards: offerRewards, rerollOffer: rerollOffer,
-    applyReward: applyReward, effRerolls: effRerolls,
+    applyReward: applyReward, skipReward: skipReward, effRerolls: effRerolls,
     effectKind: effectKind, setIntent: setIntent, EFFECTS: EFFECTS, FEATURE_HOOKS: FEATURE_HOOKS, configureBoss: configureBoss,
     toggleDisabled: toggleDisabled, isDisabled: isDisabled, applyClass: applyClass, cycleChallenge: cycleChallenge,
     loadClass: loadClass, saveClass: saveClass, resetClass: resetClass, hasClassSave: hasClassSave, setAllDisabled: setAllDisabled,
